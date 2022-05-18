@@ -160,7 +160,7 @@ void BalanceController::trackingCallback(const ball_tracker_msgs::TrackingUpdate
   if ((x_current_ > x_middle_) && (x_current_ < x_max_)) {
     // increase
     // q_target_[6] = current_pose_[6] + delta_angle;
-    //delta_angle = std::abs(x_current_ - x_middle_) / ((x_max_ - x_min_) / 2) * 0.25;
+    delta_angle = std::abs(x_current_ - x_middle_) / ((x_max_ - x_min_) / 2.0) * delta_angle;
     {
       //ROS_INFO_STREAM("q_target_[6] before: " << q_target_[6]);
       //if (delta_angle > 0.25)
@@ -181,7 +181,7 @@ void BalanceController::trackingCallback(const ball_tracker_msgs::TrackingUpdate
   } else if ((x_current_ < x_middle_) && (x_current_ > x_min_)) {
     // decrease
     // q_target_[6] = current_pose_[6] - delta_angle;
-    //delta_angle = std::abs(x_current_ - x_middle_) / ((x_max_ - x_min_) / 2) * 0.25;
+    delta_angle = std::abs(x_current_ - x_middle_) / ((x_max_ - x_min_) / 2.0) * delta_angle;
     {
       //ROS_INFO_STREAM("q_target_[6] before: " << q_target_[6]);
       //if (delta_angle < -0.25)
