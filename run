@@ -1,0 +1,7 @@
+roslaunch balance_controller balance_controller.launch robot_ip:=172.16.0.2 load_gripper:=false
+
+rostopic echo /balance_controller/desired_position
+
+rostopic pub -l /balance_controller/joint_position std_msgs/Float64 -- -0.02
+
+rosrun plotjuggler plotjuggler

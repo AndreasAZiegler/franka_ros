@@ -161,3 +161,7 @@ balance_controller:
         - panda_joint5
         - panda_joint6
         - panda_joint7
+    x_min: 321
+    x_max: 978
+    y_min: 24
+    y_max: 677

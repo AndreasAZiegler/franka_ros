@@ -19,6 +19,7 @@ find_package(catkin REQUIRED COMPONENTS
   realtime_tools
   roscpp
   rospy
+  ball_tracker_msgs
 )
 
 find_package(Eigen3 REQUIRED)
@@ -27,11 +28,12 @@ if(NOT Franka_FOUND)
   find_package(Franka 0.8.0 REQUIRED)
 endif()
 
-#add_message_files(FILES
-#  JointTorqueComparison.msg
-#)
+add_message_files(FILES
+  #JointTorqueComparison.msg
+  PlaneBoundaries.msg
+)
 
-#generate_messages()
+generate_messages()
 
 #generate_dynamic_reconfigure_options(
 #  cfg/compliance_param.cfg
@@ -58,6 +60,7 @@ catkin_package(
     pluginlib
     realtime_tools
     roscpp
+    ball_tracker_msgs
   DEPENDS Franka
 )
 
@@ -68,7 +71,7 @@ add_library(balance_controller
 add_dependencies(balance_controller
   ${${PROJECT_NAME}_EXPORTED_TARGETS}
   ${catkin_EXPORTED_TARGETS}
-  #${PROJECT_NAME}_generate_messages_cpp
+  ${PROJECT_NAME}_generate_messages_cpp
   #${PROJECT_NAME}_gencpp
   #${PROJECT_NAME}_gencfg
 )
