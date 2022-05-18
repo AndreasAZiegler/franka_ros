@@ -149,7 +149,7 @@ void BalanceController::trackingCallback(const ball_tracker_msgs::TrackingUpdate
   x_current_ = msg->x;
   y_current_ = msg->y;
 
-  double delta_angle = 0.0005;
+  double delta_angle = 0.001;
 
   /*
   for (std::size_t i = 0; i < 7; ++i) {
