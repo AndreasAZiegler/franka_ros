@@ -67,16 +67,24 @@ bool BalanceController::init(hardware_interface::RobotHW* robot_hardware,
   }
   */
 
-  publisher_.init(node_handle, "desired_position", 1);
-  publisher_.lock();
-  publisher_.msg_.name.resize(7);
-  publisher_.msg_.position.resize(7);
-  publisher_.msg_.velocity.resize(7);
-  publisher_.msg_.effort.resize(7);
-  publisher_.unlock();
+  target_position_publisher_.init(node_handle, "desired_position", 1);
+  target_position_publisher_.lock();
+  target_position_publisher_.msg_.name.resize(7);
+  target_position_publisher_.msg_.position.resize(7);
+  target_position_publisher_.msg_.velocity.resize(7);
+  target_position_publisher_.msg_.effort.resize(7);
+  target_position_publisher_.unlock();
 
-  joint_position_subscriber_ =
-      node_handle.subscribe("joint_position", 1000, &BalanceController::positionCallback, this);
+  current_position_publisher_.init(node_handle, "current_position", 1);
+  current_position_publisher_.lock();
+  current_position_publisher_.msg_.name.resize(7);
+  current_position_publisher_.msg_.position.resize(7);
+  current_position_publisher_.msg_.velocity.resize(7);
+  current_position_publisher_.msg_.effort.resize(7);
+  current_position_publisher_.unlock();
+
+  control_subscriber_ =
+      node_handle.subscribe("control", 10, &BalanceController::controllCallback, this);
   tracking_subscriber_ = node_handle.subscribe("/camera/tracking_update", 1000,
                                                &BalanceController::trackingCallback, this);
   // boundaries_subscriber_ = node_handle.subscribe("plane_boundaries", 10,
@@ -121,27 +129,37 @@ void BalanceController::update(const ros::Time& /*time*/, const ros::Duration& p
     }
   }
 
-  // position_joint_handles_[6].setCommand(q_target_[6]);
-
   publishTargetState();
+  publishCurrentState();
 }
 
 void BalanceController::publishTargetState() {
-  if (publisher_.trylock()) {
+  if (target_position_publisher_.trylock()) {
     std::lock_guard<std::mutex> lock(target_mutex_);
     for (size_t i = 0; i < 7; ++i) {
-      publisher_.msg_.name[i] = "panda_joint" + std::to_string(i + 1);
-      publisher_.msg_.position[i] = q_target_[i];
-      //publisher_.msg_.velocity[i] = 0.0;
-      //publisher_.msg_.effort[i] = leader_data_.tau_target[i];
+      target_position_publisher_.msg_.name[i] = "panda_joint" + std::to_string(i + 1);
+      target_position_publisher_.msg_.position[i] = q_target_[i];
+      // publisher_.msg_.velocity[i] = 0.0;
+      // publisher_.msg_.effort[i] = leader_data_.tau_target[i];
     }
-    publisher_.unlockAndPublish();
+    target_position_publisher_.unlockAndPublish();
   }
 }
 
-void BalanceController::positionCallback(const std_msgs::Float64::ConstPtr& msg) {
-  std::lock_guard<std::mutex> lock(target_mutex_);
-  q_target_[6] += msg->data;
+void BalanceController::publishCurrentState() {
+  if (current_position_publisher_.trylock()) {
+    std::lock_guard<std::mutex> lock(target_mutex_);
+    for (size_t i = 0; i < 7; ++i) {
+      current_position_publisher_.msg_.name[i] = "panda_joint" + std::to_string(i + 1);
+      current_position_publisher_.msg_.position[i] = current_pose_[i];
+      // publisher_.msg_.velocity[i] = 0.0;
+      // publisher_.msg_.effort[i] = leader_data_.tau_target[i];
+    }
+    current_position_publisher_.unlockAndPublish();
+  }
+}
+
+
 }
 
 void BalanceController::trackingCallback(const ball_tracker_msgs::TrackingUpdate::ConstPtr& msg) {

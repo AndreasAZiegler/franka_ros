@@ -31,7 +31,7 @@ class BalanceController : public controller_interface::MultiInterfaceController<
   using Vector7d = Eigen::Matrix<double, 7, 1>;
 
   void publishTargetState();
-  void positionCallback(const std_msgs::Float64::ConstPtr& msg);
+  void publishCurrentState();
   void trackingCallback(const ball_tracker_msgs::TrackingUpdate::ConstPtr& msg);
   void boundariesCallback(const balance_controller::PlaneBoundaries::ConstPtr& msg);
 
@@ -43,8 +43,9 @@ class BalanceController : public controller_interface::MultiInterfaceController<
   Vector7d q_target_;  // Target positions of the arm [rad, rad, rad, rad, rad, rad, rad]
   std::mutex target_mutex_;
 
-  realtime_tools::RealtimePublisher<sensor_msgs::JointState> publisher_;
-  ros::Subscriber joint_position_subscriber_;
+  realtime_tools::RealtimePublisher<sensor_msgs::JointState> target_position_publisher_;
+  realtime_tools::RealtimePublisher<sensor_msgs::JointState> current_position_publisher_;
+  ros::Subscriber control_subscriber_;
   ros::Subscriber tracking_subscriber_;
   //ros::Subscriber boundaries_subscriber_;
   
