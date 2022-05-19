@@ -13,6 +13,7 @@
 #include <std_msgs/Float64.h>
 #include <ball_tracker_msgs/TrackingUpdate.h>
 #include <balance_controller/PlaneBoundaries.h>
+#include <std_msgs/Bool.h>
 #include <sensor_msgs/JointState.h>
 #include <ros/node_handle.h>
 #include <ros/time.h>
@@ -32,6 +33,7 @@ class BalanceController : public controller_interface::MultiInterfaceController<
 
   void publishTargetState();
   void publishCurrentState();
+  void controllCallback(const std_msgs::Bool::ConstPtr& msg);
   void trackingCallback(const ball_tracker_msgs::TrackingUpdate::ConstPtr& msg);
   void boundariesCallback(const balance_controller::PlaneBoundaries::ConstPtr& msg);
 

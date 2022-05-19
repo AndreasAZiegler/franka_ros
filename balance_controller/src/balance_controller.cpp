@@ -160,6 +160,9 @@ void BalanceController::publishCurrentState() {
 }
 
 
+void BalanceController::controllCallback(const std_msgs::Bool::ConstPtr& msg) {
+  control_position_ = msg->data; 
+  ROS_WARN_STREAM("control_position_: " << control_position_);
 }
 
 void BalanceController::trackingCallback(const ball_tracker_msgs::TrackingUpdate::ConstPtr& msg) {
