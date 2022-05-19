@@ -17,6 +17,7 @@
 #include <sensor_msgs/JointState.h>
 #include <ros/node_handle.h>
 #include <ros/time.h>
+#include <control_toolbox/pid.h>
 #include <Eigen/Dense>
 
 namespace balance_controller {
@@ -61,6 +62,14 @@ class BalanceController : public controller_interface::MultiInterfaceController<
   bool position_initialized_;
   int x_current_;
   int y_current_;
+  std::mutex current_mutex_;
+
+  bool control_position_;
+  control_toolbox::Pid pid_x_;
+  control_toolbox::Pid pid_y_;
+  control_toolbox::Pid pid_x_init_;
+  control_toolbox::Pid pid_y_init_;
+  ros::Time last_time_;
 };
 
 }  // namespace balance_controller

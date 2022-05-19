@@ -20,6 +20,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
   ball_tracker_msgs
+  control_toolbox
 )
 
 find_package(Eigen3 REQUIRED)
@@ -61,6 +62,7 @@ catkin_package(
     realtime_tools
     roscpp
     ball_tracker_msgs
+    control_toolbox
   DEPENDS Franka
 )
 

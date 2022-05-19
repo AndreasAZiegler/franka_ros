@@ -92,6 +92,14 @@ bool BalanceController::init(hardware_interface::RobotHW* robot_hardware,
 
   position_initialized_ = false;
 
+  control_position_ = false;
+  //	initPid (double p, double i, double d, double i_max, double i_min, bool antiwindup=false)
+  pid_x_.initPid(0.0003/*p*/, 0.00005/*i*/, 0.0/*d*/, 0.3/*i_max*/, -0.3/*i_min*/, true/*antiwindup*/);
+  pid_y_.initPid(0.0003/*p*/, 0.0/*i*/, 0.0/*d*/, 0.3/*i_max*/, -0.3/*i_min*/, true/*antiwindup*/);
+  pid_x_init_.initPid(0.35/*p*/, 0.0/*i*/, 0.0/*d*/, 0.3/*i_max*/, -0.3/*i_min*/, true/*antiwindup*/);
+  pid_y_init_.initPid(0.35/*p*/, 0.0/*i*/, 0.0/*d*/, 0.5/*i_max*/, -0.5/*i_min*/, true/*antiwindup*/);
+  last_time_ = ros::Time::now();
+
   return true;
 }
 
@@ -122,6 +130,48 @@ void BalanceController::update(const ros::Time& /*time*/, const ros::Duration& p
     }
   }
   */
+
+  for (std::size_t i = 0; i < 7; ++i) {
+    q_target_[i] = current_pose_[i];
+  }
+
+  if (control_position_)
+  {
+    int x_current;
+    int y_current;
+    {
+      std::lock_guard<std::mutex> lock(current_mutex_);
+      x_current = x_current_;
+      y_current = y_current_;
+    }
+
+    if ((x_current < x_max_) && (x_current > x_min_))
+    {
+      ros::Time time = ros::Time::now();
+      double effort_x = pid_x_.computeCommand(x_current - x_middle_, time - last_time_);
+      double y_diff = y_current - y_middle_;
+      double effort_y = 0.0;
+      if (y_diff > 0.1)
+      {
+        effort_y = pid_y_.computeCommand(y_diff, time - last_time_);
+      }
+      last_time_ = time;
+
+      std::lock_guard<std::mutex> lock(target_mutex_);
+      q_target_[5] = q_target_[5] + effort_y;
+      q_target_[6] = q_target_[6] + effort_x;
+    }
+  }
+  else
+  {
+    ros::Time time = ros::Time::now();
+    double effort_x = pid_x_init_.computeCommand(current_pose_[6] - 0.04, time - last_time_);
+    double effort_y = pid_y_init_.computeCommand(current_pose_[5] - 2.95, time - last_time_);
+    last_time_ = time;
+    q_target_[5] = q_target_[5] - effort_y;
+    q_target_[6] = q_target_[6] - effort_x;
+  }
+
   {
     std::lock_guard<std::mutex> lock(target_mutex_);
     for (size_t i = 0; i < 7; ++i) {
@@ -167,8 +217,11 @@ void BalanceController::controllCallback(const std_msgs::Bool::ConstPtr& msg) {
 
 void BalanceController::trackingCallback(const ball_tracker_msgs::TrackingUpdate::ConstPtr& msg) {
   position_initialized_ = true;
-  x_current_ = msg->x;
-  y_current_ = msg->y;
+  {
+    std::lock_guard<std::mutex> lock(current_mutex_);
+    x_current_ = msg->x;
+    y_current_ = msg->y;
+  }
 
   double delta_angle = 0.001;
 
@@ -178,6 +231,7 @@ void BalanceController::trackingCallback(const ball_tracker_msgs::TrackingUpdate
   }
   */
 
+  /*
   if ((x_current_ > x_middle_) && (x_current_ < x_max_)) {
     // increase
     // q_target_[6] = current_pose_[6] + delta_angle;
@@ -221,6 +275,7 @@ void BalanceController::trackingCallback(const ball_tracker_msgs::TrackingUpdate
     }
     //ROS_INFO_STREAM("decreased");
   }
+  */
 }
 
 /*
