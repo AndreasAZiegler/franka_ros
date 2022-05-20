@@ -68,6 +68,7 @@ catkin_package(
 
 add_library(balance_controller
   src/balance_controller.cpp
+  src/balance_controller_force.cpp
 )
 
 add_dependencies(balance_controller

@@ -120,16 +120,6 @@ void BalanceController::starting(const ros::Time& /* time */) {
 void BalanceController::update(const ros::Time& /*time*/, const ros::Duration& period) {
   elapsed_time_ += period;
 
-  /*
-  double delta_angle = M_PI / 16 * (1 - std::cos(M_PI / 5.0 * elapsed_time_.toSec())) * 0.2;
-  for (size_t i = 0; i < 7; ++i) {
-    if (i == 4) {
-      position_joint_handles_[i].setCommand(current_pose_[i] - delta_angle);
-    } else {
-      position_joint_handles_[i].setCommand(current_pose_[i] + delta_angle);
-    }
-  }
-  */
 
   for (std::size_t i = 0; i < 7; ++i) {
     q_target_[i] = current_pose_[i];
@@ -224,58 +214,6 @@ void BalanceController::trackingCallback(const ball_tracker_msgs::TrackingUpdate
   }
 
   double delta_angle = 0.001;
-
-  /*
-  for (std::size_t i = 0; i < 7; ++i) {
-    q_target_[i] = current_pose_[i];
-  }
-  */
-
-  /*
-  if ((x_current_ > x_middle_) && (x_current_ < x_max_)) {
-    // increase
-    // q_target_[6] = current_pose_[6] + delta_angle;
-    delta_angle = std::abs(x_current_ - x_middle_) / ((x_max_ - x_min_) / 2.0) * delta_angle;
-    {
-      //ROS_INFO_STREAM("q_target_[6] before: " << q_target_[6]);
-      //if (delta_angle > 0.25)
-      if (q_target_[6] + delta_angle > 0.25)
-      {
-        std::lock_guard<std::mutex> lock(target_mutex_);
-        q_target_[6] = 0.25;
-      }
-      else
-      {
-        std::lock_guard<std::mutex> lock(target_mutex_);
-        q_target_[6] = q_target_[6] + delta_angle;
-        //q_target_[6] = delta_angle;
-      }
-      //ROS_INFO_STREAM("q_target_[6] after: " << q_target_[6]);
-    }
-    //ROS_INFO_STREAM("increased");
-  } else if ((x_current_ < x_middle_) && (x_current_ > x_min_)) {
-    // decrease
-    // q_target_[6] = current_pose_[6] - delta_angle;
-    delta_angle = std::abs(x_current_ - x_middle_) / ((x_max_ - x_min_) / 2.0) * delta_angle;
-    {
-      //ROS_INFO_STREAM("q_target_[6] before: " << q_target_[6]);
-      //if (delta_angle < -0.25)
-      if (q_target_[6] - delta_angle < -0.25)
-      {
-        std::lock_guard<std::mutex> lock(target_mutex_);
-        q_target_[6] = -0.25;
-      }
-      else
-      {
-        std::lock_guard<std::mutex> lock(target_mutex_);
-        q_target_[6] = q_target_[6] - delta_angle;
-        //q_target_[6] = delta_angle;
-      }
-      //ROS_INFO_STREAM("q_target_[6] after: " << q_target_[6]);
-    }
-    //ROS_INFO_STREAM("decreased");
-  }
-  */
 }
 
 /*

@@ -161,7 +161,23 @@ balance_controller:
         - panda_joint5
         - panda_joint6
         - panda_joint7
-    x_min: 321
-    x_max: 978
-    y_min: 24
-    y_max: 677
+    x_min: 390
+    x_max: 850
+    y_min: 130
+    y_max: 580
+
+balance_controller_force:
+    type: balance_controller/BalanceControllerForce
+    arm_id: panda
+    joint_names:
+        - panda_joint1
+        - panda_joint2
+        - panda_joint3
+        - panda_joint4
+        - panda_joint5
+        - panda_joint6
+        - panda_joint7
+    x_min: 350
+    x_max: 820
+    y_min: 155
+    y_max: 615
