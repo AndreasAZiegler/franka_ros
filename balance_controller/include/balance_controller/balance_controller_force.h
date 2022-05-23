@@ -19,6 +19,7 @@
 #include <sensor_msgs/JointState.h>
 #include <control_toolbox/pid.h>
 #include <std_msgs/Bool.h>
+#include <std_msgs/Float32.h>
 #include <ball_tracker_msgs/TrackingUpdate.h>
 
 //#include <franka_example_controllers/desired_mass_paramConfig.h>
@@ -57,6 +58,7 @@ class BalanceControllerForce : public controller_interface::MultiInterfaceContro
   //static constexpr double kDeltaTauMax{1.0};
 
   std::array<double, 7> current_pose_{};
+  std::array<double, 7> current_error_{};
   Vector7d tau_target_;  // Target positions of the arm [rad, rad, rad, rad, rad, rad, rad]
 
   std::mutex target_mutex_;
@@ -64,11 +66,15 @@ class BalanceControllerForce : public controller_interface::MultiInterfaceContro
   void publishTargetState();
   void publishCurrentState();
   void controllCallback(const std_msgs::Bool::ConstPtr& msg);
+  void angularPositionXCallback(const std_msgs::Float32::ConstPtr& msg);
+  void angularPositionYCallback(const std_msgs::Float32::ConstPtr& msg);
   void trackingCallback(const ball_tracker_msgs::TrackingUpdate::ConstPtr& msg);
 
   realtime_tools::RealtimePublisher<sensor_msgs::JointState> target_position_publisher_;
   realtime_tools::RealtimePublisher<sensor_msgs::JointState> current_position_publisher_;
   ros::Subscriber control_subscriber_;
+  ros::Subscriber angular_position_x_subscriber_;
+  ros::Subscriber angular_position_y_subscriber_;
   ros::Subscriber tracking_subscriber_;
 
   // Dynamic reconfigure
@@ -92,10 +98,12 @@ class BalanceControllerForce : public controller_interface::MultiInterfaceContro
   std::mutex current_mutex_;
 
   bool control_position_;
+  double angular_position_x_;
+  double angular_position_y_;
   control_toolbox::Pid pid_x_;
   control_toolbox::Pid pid_y_;
-  control_toolbox::Pid pid_x_init_;
-  control_toolbox::Pid pid_y_init_;
+  control_toolbox::Pid pid_x_angular_position_;
+  control_toolbox::Pid pid_y_angular_position_;
   ros::Time last_time_;
 };
 
