@@ -9,4 +9,9 @@
       The balance controller adjusts the orientation of a 2d plane such that the object stays in the middle
     </description>
   </class>
+  <class name="balance_controller/BalanceControllerCartesian" type="balance_controller::BalanceControllerCartesian" base_class_type="controller_interface::ControllerBase">
+    <description>
+      The balance controller adjusts the orientation of a 2d plane such that the object stays in the middle
+    </description>
+  </class>
 </library>
