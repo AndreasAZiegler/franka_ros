@@ -135,8 +135,8 @@ bool BalanceControllerForce::init(hardware_interface::RobotHW* robot_hw,
     pid.initPid(20.0/*p*/, 0.0/*i*/, 0.0/*d*/, 0.8/*i_max*/, -0.8/*i_min*/, true/*antiwindup*/);
   }
 
-  pid_x_position_.initPid(0.00015/*p*/, 0.0/*i*/, 0.0/*d*/, 0.2/*i_max*/, -0.2/*i_min*/, true/*antiwindup*/);
-  pid_y_position_.initPid(0.00015/*p*/, 0.0/*i*/, 0.0/*d*/, 0.15/*i_max*/, -0.15/*i_min*/, true/*antiwindup*/);
+  pid_x_position_.initPid(0.000115/*p*/, 0.0/*i*/, 0.0/*d*/, 0.2/*i_max*/, -0.2/*i_min*/, true/*antiwindup*/);
+  pid_y_position_.initPid(0.00011/*p*/, 0.0/*i*/, 0.0/*d*/, 0.15/*i_max*/, -0.15/*i_min*/, true/*antiwindup*/);
   pid_x_angular_position_.initPid(20.0/*p*/, 0.0/*i*/, 0.0/*d*/, 0.8/*i_max*/, -0.8/*i_min*/, true/*antiwindup*/);
   pid_y_angular_position_.initPid(20.0/*p*/, 0.0/*i*/, 0.0/*d*/, 0.8/*i_max*/, -0.8/*i_min*/, true/*antiwindup*/);
   last_time_ = ros::Time::now();
@@ -193,9 +193,9 @@ void BalanceControllerForce::update(const ros::Time& /*time*/, const ros::Durati
     {
       ros::Time time = ros::Time::now();
       double joint_position_x = pid_x_position_.computeCommand(x_current - x_middle_, time - last_time_);
-      angular_position_x = joint_position_x + 0.06;
+      angular_position_x = joint_position_x + 0.07;
       double joint_position_y = pid_y_position_.computeCommand(y_current - y_middle_, time - last_time_);
-      angular_position_y = -joint_position_y + 2.87;
+      angular_position_y = -joint_position_y + 2.92;
       last_time_ = time;
 
       desired_position_[6] = joint_position_x;
