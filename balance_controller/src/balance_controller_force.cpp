@@ -131,6 +131,10 @@ bool BalanceControllerForce::init(hardware_interface::RobotHW* robot_hw,
 
   control_position_ = false;
   //	initPid (double p, double i, double d, double i_max, double i_min, bool antiwindup=false)
+  for (auto& pid : const_joint_pid_) {
+    pid.initPid(20.0/*p*/, 0.0/*i*/, 0.0/*d*/, 0.8/*i_max*/, -0.8/*i_min*/, true/*antiwindup*/);
+  }
+
   pid_x_position_.initPid(0.00015/*p*/, 0.0/*i*/, 0.0/*d*/, 0.2/*i_max*/, -0.2/*i_min*/, true/*antiwindup*/);
   pid_y_position_.initPid(0.00015/*p*/, 0.0/*i*/, 0.0/*d*/, 0.15/*i_max*/, -0.15/*i_min*/, true/*antiwindup*/);
   pid_x_angular_position_.initPid(20.0/*p*/, 0.0/*i*/, 0.0/*d*/, 0.8/*i_max*/, -0.8/*i_min*/, true/*antiwindup*/);
@@ -151,6 +155,7 @@ void BalanceControllerForce::starting(const ros::Time& /*time*/) {
 
   for (size_t i = 0; i < 7; ++i) {
     current_pose_[i] = joint_handles_[i].getPosition();
+    initial_pose_[i] = joint_handles_[i].getPosition();
   }
 
   angular_position_x_ = current_pose_[6];
@@ -199,6 +204,14 @@ void BalanceControllerForce::update(const ros::Time& /*time*/, const ros::Durati
   }
 
   ros::Time time = ros::Time::now();
+
+  {
+    std::lock_guard<std::mutex> lock(target_mutex_);
+    for (std::size_t i; i < 5; ++i) {
+      tau_target_[i] = -const_joint_pid_[i].computeCommand(current_pose_[i] - initial_pose_[i], time - last_time_);
+    }
+  }
+
   //double effort_x = pid_x_angular_position_.computeCommand(current_pose_[6] - 0.05, time - last_time_);
   //double effort_y = pid_y_angular_position_.computeCommand(current_pose_[5] - 2.95, time - last_time_);
   current_error_[6] = current_pose_[6] - angular_position_x;

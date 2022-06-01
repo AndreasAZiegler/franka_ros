@@ -57,6 +57,7 @@ class BalanceControllerForce : public controller_interface::MultiInterfaceContro
   //Eigen::Matrix<double, 7, 1> tau_error_;
   //static constexpr double kDeltaTauMax{1.0};
 
+  std::array<double, 7> initial_pose_{};
   std::array<double, 7> current_pose_{};
   std::array<double, 7> current_error_{};
   std::array<double, 7> desired_position_ {};
@@ -101,6 +102,7 @@ class BalanceControllerForce : public controller_interface::MultiInterfaceContro
   bool control_position_;
   double angular_position_x_;
   double angular_position_y_;
+  std::array<control_toolbox::Pid, 5> const_joint_pid_;
   control_toolbox::Pid pid_x_position_;
   control_toolbox::Pid pid_y_position_;
   control_toolbox::Pid pid_x_angular_position_;
