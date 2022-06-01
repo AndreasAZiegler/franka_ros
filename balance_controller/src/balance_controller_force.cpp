@@ -133,8 +133,8 @@ bool BalanceControllerForce::init(hardware_interface::RobotHW* robot_hw,
   //	initPid (double p, double i, double d, double i_max, double i_min, bool antiwindup=false)
   pid_x_.initPid(0.0022/*p*/, 0.0/*i*/, 0.0/*d*/, 0.2/*i_max*/, -0.2/*i_min*/, true/*antiwindup*/);
   pid_y_.initPid(0.00225/*p*/, 0.000/*i*/, 0.0/*d*/, 0.15/*i_max*/, -0.15/*i_min*/, true/*antiwindup*/);
-  pid_x_angular_position_.initPid(14.0/*p*/, 0.0/*i*/, 0.0/*d*/, 0.8/*i_max*/, -0.8/*i_min*/, true/*antiwindup*/);
-  pid_y_angular_position_.initPid(9.5/*p*/, 0.0/*i*/, 0.0/*d*/, 0.8/*i_max*/, -0.8/*i_min*/, true/*antiwindup*/);
+  pid_x_angular_position_.initPid(20.0/*p*/, 0.0/*i*/, 0.0/*d*/, 0.8/*i_max*/, -0.8/*i_min*/, true/*antiwindup*/);
+  pid_y_angular_position_.initPid(20.0/*p*/, 0.0/*i*/, 0.0/*d*/, 0.8/*i_max*/, -0.8/*i_min*/, true/*antiwindup*/);
   last_time_ = ros::Time::now();
 
   return true;
