@@ -207,9 +207,9 @@ void BalanceControllerForce::update(const ros::Time& /*time*/, const ros::Durati
     current_error_[5] = current_pose_[5] - angular_position_y_;
     double effort_x = pid_x_angular_position_.computeCommand(current_pose_[6] - angular_position_x_, time - last_time_);
     double effort_y = pid_y_angular_position_.computeCommand(current_pose_[5] - angular_position_y_, time - last_time_);
-    if (effort_x > 0)
+    if (-effort_x < 0)
     {
-      effort_x *= 1.5;
+      effort_x *= 1.4;
     }
     if (effort_y < 0)
     {
