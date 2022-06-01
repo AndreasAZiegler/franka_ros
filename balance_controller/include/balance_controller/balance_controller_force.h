@@ -59,6 +59,7 @@ class BalanceControllerForce : public controller_interface::MultiInterfaceContro
 
   std::array<double, 7> current_pose_{};
   std::array<double, 7> current_error_{};
+  std::array<double, 7> desired_position_ {};
   Vector7d tau_target_;  // Target positions of the arm [rad, rad, rad, rad, rad, rad, rad]
 
   std::mutex target_mutex_;
@@ -100,8 +101,8 @@ class BalanceControllerForce : public controller_interface::MultiInterfaceContro
   bool control_position_;
   double angular_position_x_;
   double angular_position_y_;
-  control_toolbox::Pid pid_x_;
-  control_toolbox::Pid pid_y_;
+  control_toolbox::Pid pid_x_position_;
+  control_toolbox::Pid pid_y_position_;
   control_toolbox::Pid pid_x_angular_position_;
   control_toolbox::Pid pid_y_angular_position_;
   ros::Time last_time_;

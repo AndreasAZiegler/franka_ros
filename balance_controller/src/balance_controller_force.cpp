@@ -162,6 +162,7 @@ void BalanceControllerForce::update(const ros::Time& /*time*/, const ros::Durati
   for (size_t i = 0; i < 7; ++i) {
     current_pose_[i] = joint_handles_[i].getPosition();
     current_error_[i] = 0.0;
+    desired_position_[i] = 0.0;
   }
 
   for (std::size_t i = 0; i < 7; ++i) {
@@ -193,6 +194,8 @@ void BalanceControllerForce::update(const ros::Time& /*time*/, const ros::Durati
       }
       last_time_ = time;
 
+      desired_position_[6] = joint_position_x;
+      desired_position_[5] = -joint_position_y;
       std::lock_guard<std::mutex> lock(target_mutex_);
       tau_target_[5] = -effort_y;
       //tau_target_[6] = effort_x;
@@ -260,6 +263,7 @@ void BalanceControllerForce::publishTargetState() {
     std::lock_guard<std::mutex> lock(target_mutex_);
     for (size_t i = 0; i < 7; ++i) {
       target_position_publisher_.msg_.name[i] = "panda_joint" + std::to_string(i + 1);
+      target_position_publisher_.msg_.position[i] = desired_position_[i];
       //target_position_publisher_.msg_.position[i] = q_target_[i];
       //target_position_publisher_.msg_.velocity[i] = 0.0;
       target_position_publisher_.msg_.effort[i] = tau_target_[i];
