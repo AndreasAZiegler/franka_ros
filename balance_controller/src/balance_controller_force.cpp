@@ -133,7 +133,7 @@ bool BalanceControllerForce::init(hardware_interface::RobotHW* robot_hw,
   //	initPid (double p, double i, double d, double i_max, double i_min, bool antiwindup=false)
   pid_x_.initPid(0.0022/*p*/, 0.0/*i*/, 0.0/*d*/, 0.2/*i_max*/, -0.2/*i_min*/, true/*antiwindup*/);
   pid_y_.initPid(0.00225/*p*/, 0.000/*i*/, 0.0/*d*/, 0.15/*i_max*/, -0.15/*i_min*/, true/*antiwindup*/);
-  pid_x_angular_position_.initPid(5.0/*p*/, 2.0/*i*/, 0.0/*d*/, 0.8/*i_max*/, -0.8/*i_min*/, true/*antiwindup*/);
+  pid_x_angular_position_.initPid(12.5/*p*/, 0.0/*i*/, 0.0/*d*/, 0.8/*i_max*/, -0.8/*i_min*/, true/*antiwindup*/);
   pid_y_angular_position_.initPid(9.5/*p*/, 0.0/*i*/, 0.0/*d*/, 0.8/*i_max*/, -0.8/*i_min*/, true/*antiwindup*/);
   last_time_ = ros::Time::now();
 
@@ -207,9 +207,9 @@ void BalanceControllerForce::update(const ros::Time& /*time*/, const ros::Durati
     current_error_[5] = current_pose_[5] - angular_position_y_;
     double effort_x = pid_x_angular_position_.computeCommand(current_pose_[6] - angular_position_x_, time - last_time_);
     double effort_y = pid_y_angular_position_.computeCommand(current_pose_[5] - angular_position_y_, time - last_time_);
-    if (effort_x < 0)
+    if (effort_x > 0)
     {
-      effort_x *= 1.175;
+      effort_x *= 1.5;
     }
     if (effort_y < 0)
     {
