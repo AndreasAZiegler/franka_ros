@@ -177,7 +177,14 @@ balance_controller_force:
         - panda_joint5
         - panda_joint6
         - panda_joint7
-    x_min: 350
-    x_max: 820
-    y_min: 155
-    y_max: 615
+    x_min: 317
+    x_max: 931
+    y_min: 54
+    y_max: 659
+    joint_1_steady_position: 1.047
+    joint_2_steady_position: -0.356
+    joint_3_steady_position: -0.246
+    joint_4_steady_position: -1.724
+    joint_5_steady_position: -0.183
+    joint_6_steady_position: 2.969
+    joint_7_steady_position: 0.101
