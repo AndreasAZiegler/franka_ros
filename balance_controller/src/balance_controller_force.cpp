@@ -193,7 +193,6 @@ void BalanceControllerForce::starting(const ros::Time& /*time*/) {
 
   for (size_t i = 0; i < 7; ++i) {
     current_pose_[i] = joint_handles_[i].getPosition();
-    initial_pose_[i] = joint_handles_[i].getPosition();
   }
 
   angular_position_x_ = current_pose_[6];
@@ -215,6 +214,8 @@ void BalanceControllerForce::update(const ros::Time& /*time*/, const ros::Durati
     }
   }
 
+  ros::Time time = ros::Time::now();
+
   auto angular_position_x = angular_position_x_;
   auto angular_position_y = angular_position_y_;
   if (control_position_ && position_initialized_)
@@ -230,19 +231,35 @@ void BalanceControllerForce::update(const ros::Time& /*time*/, const ros::Durati
     if ((x_current < x_max_) && (x_current > x_min_))
     {
       ros::Time time = ros::Time::now();
-      double joint_position_x = pid_x_position_.computeCommand(x_current - x_middle_, time - last_time_);
-      angular_position_x = joint_position_x + 0.07;
-      double joint_position_y = pid_y_position_.computeCommand(y_current - y_middle_, time - last_time_);
-      angular_position_y = -joint_position_y + 2.92;
+      double joint_position_x = pid_x_position_.computeCommand(x_middle_ - x_current, time - last_time_);
+      angular_position_x = joint_position_x + initial_pose_[6];
+      double joint_position_y = pid_y_position_.computeCommand(y_middle_ - y_current, time - last_time_);
+      angular_position_y = -joint_position_y + initial_pose_[5];
       last_time_ = time;
 
-      desired_position_[6] = joint_position_x;
-      desired_position_[5] = -joint_position_y;
+      desired_position_[6] = angular_position_x;
+      desired_position_[5] = angular_position_y;
+
+      current_error_[6] = angular_position_x - current_pose_[6];
+      current_error_[5] = angular_position_y - current_pose_[5];
+      double effort_x = pid_x_angular_position_.computeCommand(angular_position_x - current_pose_[6], time - last_time_);
+      double effort_y = pid_y_angular_position_.computeCommand(angular_position_y - current_pose_[5], time - last_time_);
+      if (-effort_x < 0)
+      {
+        effort_x *= 1.4;
+      }
+      if (effort_y < 0)
+      {
+        effort_y *= 1.2;
+      }
+
+      {
+        std::lock_guard<std::mutex> lock(target_mutex_);
+        tau_target_[5] = -effort_y;
+        tau_target_[6] = -effort_x;
+      }
     }
   }
-
-  ros::Time time = ros::Time::now();
-
   else {
     std::lock_guard<std::mutex> lock(target_mutex_);
     for (std::size_t i = 5; i < 7; ++i) {
@@ -250,26 +267,11 @@ void BalanceControllerForce::update(const ros::Time& /*time*/, const ros::Durati
     }
   }
 
-  //double effort_x = pid_x_angular_position_.computeCommand(current_pose_[6] - 0.05, time - last_time_);
-  //double effort_y = pid_y_angular_position_.computeCommand(current_pose_[5] - 2.95, time - last_time_);
-  current_error_[6] = current_pose_[6] - angular_position_x;
-  current_error_[5] = current_pose_[5] - angular_position_y;
-  double effort_x = pid_x_angular_position_.computeCommand(current_pose_[6] - angular_position_x, time - last_time_);
-  double effort_y = pid_y_angular_position_.computeCommand(current_pose_[5] - angular_position_y, time - last_time_);
-  if (-effort_x < 0)
-  {
-    effort_x *= 1.4;
-  }
-  if (effort_y < 0)
-  {
-    effort_y *= 1.2;
-  }
-  last_time_ = time;
-
   {
     std::lock_guard<std::mutex> lock(target_mutex_);
-    tau_target_[5] = -effort_y;
-    tau_target_[6] = -effort_x;
+    for (std::size_t i = 0; i < 5; ++i) {
+      tau_target_[i] = const_joint_pid_[i].computeCommand(initial_pose_[i] - current_pose_[i], time - last_time_);
+    }
   }
 
   {
