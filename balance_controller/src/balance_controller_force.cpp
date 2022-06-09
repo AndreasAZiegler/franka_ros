@@ -97,6 +97,44 @@ bool BalanceControllerForce::init(hardware_interface::RobotHW* robot_hw,
     ROS_ERROR("BalanceController: Could not parse y_max");
   }
 
+  double joint_1_steady_position;
+  if (!node_handle.getParam("joint_1_steady_position", joint_1_steady_position)) {
+    ROS_ERROR("BalanceController: Could not parse joint_1_steady_position");
+  }
+  initial_pose_[0] = joint_1_steady_position; 
+  double joint_2_steady_position;
+  if (!node_handle.getParam("joint_2_steady_position", joint_2_steady_position)) {
+    ROS_ERROR("BalanceController: Could not parse joint_2_steady_position");
+  }
+  initial_pose_[1] = joint_2_steady_position; 
+  double joint_3_steady_position;
+  if (!node_handle.getParam("joint_3_steady_position", joint_3_steady_position)) {
+    ROS_ERROR("BalanceController: Could not parse joint_3_steady_position");
+  }
+  initial_pose_[2] = joint_3_steady_position; 
+  double joint_4_steady_position;
+  if (!node_handle.getParam("joint_4_steady_position", joint_4_steady_position)) {
+    ROS_ERROR("BalanceController: Could not parse joint_4_steady_position");
+  }
+  initial_pose_[3] = joint_4_steady_position; 
+  double joint_5_steady_position;
+  if (!node_handle.getParam("joint_5_steady_position", joint_5_steady_position)) {
+    ROS_ERROR("BalanceController: Could not parse joint_5_steady_position");
+  }
+  initial_pose_[4] = joint_5_steady_position; 
+  double joint_6_steady_position;
+  if (!node_handle.getParam("joint_6_steady_position", joint_6_steady_position)) {
+    ROS_ERROR("BalanceController: Could not parse joint_6_steady_position");
+  }
+  initial_pose_[5] = joint_6_steady_position; 
+  ROS_INFO_STREAM("initial_pose_[5]: " << initial_pose_[5]);
+  double joint_7_steady_position;
+  if (!node_handle.getParam("joint_7_steady_position", joint_7_steady_position)) {
+    ROS_ERROR("BalanceController: Could not parse joint_7_steady_position");
+  }
+  initial_pose_[6] = joint_7_steady_position; 
+  ROS_INFO_STREAM("initial_pose_[6]: " << initial_pose_[6]);
+
   x_middle_ = (x_max_ + x_min_) / 2;
   y_middle_ = (y_max_ + y_min_) / 2;
 
@@ -205,10 +243,10 @@ void BalanceControllerForce::update(const ros::Time& /*time*/, const ros::Durati
 
   ros::Time time = ros::Time::now();
 
-  {
+  else {
     std::lock_guard<std::mutex> lock(target_mutex_);
-    for (std::size_t i; i < 5; ++i) {
-      tau_target_[i] = -const_joint_pid_[i].computeCommand(current_pose_[i] - initial_pose_[i], time - last_time_);
+    for (std::size_t i = 5; i < 7; ++i) {
+      tau_target_[i] = const_joint_pid_[i].computeCommand(initial_pose_[i] - current_pose_[i], time - last_time_);
     }
   }
 

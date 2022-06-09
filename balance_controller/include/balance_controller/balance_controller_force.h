@@ -102,7 +102,7 @@ class BalanceControllerForce : public controller_interface::MultiInterfaceContro
   bool control_position_;
   double angular_position_x_;
   double angular_position_y_;
-  std::array<control_toolbox::Pid, 5> const_joint_pid_;
+  std::array<control_toolbox::Pid, 7> const_joint_pid_;
   control_toolbox::Pid pid_x_position_;
   control_toolbox::Pid pid_y_position_;
   control_toolbox::Pid pid_x_angular_position_;
