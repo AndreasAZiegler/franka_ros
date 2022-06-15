@@ -108,8 +108,8 @@ class BalanceControllerForce : public controller_interface::MultiInterfaceContro
   std::array<control_toolbox::Pid, 7> const_joint_pid_;
   control_toolbox::Pid pid_x_position_;
   control_toolbox::Pid pid_y_position_;
-  control_toolbox::Pid pid_x_angular_position_;
-  control_toolbox::Pid pid_y_angular_position_;
+  control_toolbox::Pid pid_x_joint_position_;
+  control_toolbox::Pid pid_y_joint_position_;
   ros::Time last_time_;
 };
 
