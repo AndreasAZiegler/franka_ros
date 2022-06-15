@@ -181,7 +181,7 @@ bool BalanceControllerForce::init(hardware_interface::RobotHW* robot_hw,
   // const_joint_pid_.at(2).initPid(25.0/*p*/, 0.01/*i*/, 0.0/*d*/, 0.5/*i_max*/, -0.5/*i_min*/,
   // true/*antiwindup*/);
 
-  pid_x_joint_position_.initPid(10.0 /*p*/, 0.0 /*i*/, 0.0 /*d*/, 0.8 /*i_max*/, -0.8 /*i_min*/,
+  pid_x_joint_position_.initPid(35.0 /*p*/, 0.0 /*i*/, 0.0 /*d*/, 0.8 /*i_max*/, -0.8 /*i_min*/,
                                 true /*antiwindup*/);
   pid_y_joint_position_.initPid(10.0 /*p*/, 0.0 /*i*/, 0.0 /*d*/, 0.8 /*i_max*/, -0.8 /*i_min*/,
                                 true /*antiwindup*/);
