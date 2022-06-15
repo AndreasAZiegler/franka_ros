@@ -154,6 +154,8 @@ bool BalanceControllerForce::init(hardware_interface::RobotHW* robot_hw,
   current_position_publisher_.msg_.effort.resize(7);
   current_position_publisher_.unlock();
 
+  calibrate_subscriber_ =
+      node_handle.subscribe("calibrate_pid", 10, &BalanceControllerForce::calibrateCallback, this);
   control_subscriber_ =
       node_handle.subscribe("control", 10, &BalanceControllerForce::controllCallback, this);
   angular_position_x_subscriber_ =
@@ -167,6 +169,7 @@ bool BalanceControllerForce::init(hardware_interface::RobotHW* robot_hw,
 
   position_initialized_ = false;
 
+  calibrate_pid_ = false;
   control_position_ = false;
   //	initPid (double p, double i, double d, double i_max, double i_min, bool antiwindup=false)
   for (auto& pid : const_joint_pid_) {
@@ -260,11 +263,25 @@ void BalanceControllerForce::update(const ros::Time& /*time*/, const ros::Durati
         tau_target_[6] = -effort_x;
       }
     }
-  }
-  else {
-    std::lock_guard<std::mutex> lock(target_mutex_);
-    for (std::size_t i = 5; i < 7; ++i) {
-      tau_target_[i] = const_joint_pid_[i].computeCommand(initial_pose_[i] - current_pose_[i], time - last_time_);
+  } else {
+    desired_position_[6] = initial_pose_[6];
+    desired_position_[5] = initial_pose_[5];
+
+    current_error_[6] = initial_pose_[6] - current_pose_[6];
+    current_error_[5] = initial_pose_[5] - current_pose_[5];
+
+    if (calibrate_pid_) {
+      std::lock_guard<std::mutex> lock(target_mutex_);
+      tau_target_[6] = pid_x_joint_position_.computeCommand(initial_pose_[6] - current_pose_[6],
+                                                            time - last_time_);
+      tau_target_[5] = pid_y_joint_position_.computeCommand(initial_pose_[5] - current_pose_[5],
+                                                            time - last_time_);
+    } else {
+      std::lock_guard<std::mutex> lock(target_mutex_);
+      for (std::size_t i = 5; i < 7; ++i) {
+        tau_target_[i] = const_joint_pid_[i].computeCommand(initial_pose_[i] - current_pose_[i],
+                                                            time - last_time_);
+      }
     }
   }
 

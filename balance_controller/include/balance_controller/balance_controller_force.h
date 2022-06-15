@@ -67,6 +67,7 @@ class BalanceControllerForce : public controller_interface::MultiInterfaceContro
 
   void publishTargetState();
   void publishCurrentState();
+  void calibrateCallback(const std_msgs::Bool::ConstPtr& msg);
   void controllCallback(const std_msgs::Bool::ConstPtr& msg);
   void angularPositionXCallback(const std_msgs::Float32::ConstPtr& msg);
   void angularPositionYCallback(const std_msgs::Float32::ConstPtr& msg);
@@ -74,6 +75,7 @@ class BalanceControllerForce : public controller_interface::MultiInterfaceContro
 
   realtime_tools::RealtimePublisher<sensor_msgs::JointState> target_position_publisher_;
   realtime_tools::RealtimePublisher<sensor_msgs::JointState> current_position_publisher_;
+  ros::Subscriber calibrate_subscriber_;
   ros::Subscriber control_subscriber_;
   ros::Subscriber angular_position_x_subscriber_;
   ros::Subscriber angular_position_y_subscriber_;
@@ -94,6 +96,7 @@ class BalanceControllerForce : public controller_interface::MultiInterfaceContro
   int x_middle_;
   int y_middle_;
 
+  bool calibrate_pid_;
   bool position_initialized_;
   int x_current_;
   int y_current_;
