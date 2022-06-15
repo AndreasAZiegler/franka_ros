@@ -389,11 +389,19 @@ void BalanceControllerForce::angularPositionYCallback(const std_msgs::Float32::C
 void BalanceControllerForce::trackingCallback(
     const ball_tracker_msgs::TrackingUpdate::ConstPtr& msg) {
   position_initialized_ = true;
+  double alpha = 0.1;
+  double x_current_input;
+  double y_current_input;
   {
+    // Normalize values between -1 and 1
     std::lock_guard<std::mutex> lock(current_mutex_);
-    x_current_ = msg->x;
-    y_current_ = msg->y;
+    x_current_input = 2.0 * (static_cast<double>(msg->x) - static_cast<double>(x_min_)) / (static_cast<double>(x_max_) - static_cast<double>(x_min_)) - 1.0;
+    y_current_input = 2.0 * (static_cast<double>(msg->y) - static_cast<double>(y_min_)) / (static_cast<double>(y_max_) - static_cast<double>(y_min_)) - 1.0;
   }
+
+  // Low pass filter
+  x_current_ = (1 - alpha) * x_current_ + alpha * x_current_input;
+  y_current_ = (1 - alpha) * y_current_ + alpha * y_current_input;
 }
 
 }  // namespace balance_controller
