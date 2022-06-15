@@ -5,7 +5,6 @@
 #include <memory>
 #include <string>
 #include <vector>
-
 #include <controller_interface/multi_interface_controller.h>
 #include <dynamic_reconfigure/server.h>
 #include <franka_hw/franka_model_interface.h>
@@ -93,13 +92,13 @@ class BalanceControllerForce : public controller_interface::MultiInterfaceContro
   int x_max_;
   int y_min_;
   int y_max_;
-  int x_middle_;
-  int y_middle_;
+  double x_middle_;
+  double y_middle_;
 
   bool calibrate_pid_;
   bool position_initialized_;
-  int x_current_;
-  int y_current_;
+  double x_current_;
+  double y_current_;
   std::mutex current_mutex_;
 
   bool control_position_;
