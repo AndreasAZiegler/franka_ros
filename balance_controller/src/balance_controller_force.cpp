@@ -174,22 +174,21 @@ bool BalanceControllerForce::init(hardware_interface::RobotHW* robot_hw,
   calibrate_pid_ = false;
   control_position_ = false;
   //	initPid (double p, double i, double d, double i_max, double i_min, bool antiwindup=false)
-  for (auto& pid : const_joint_pid_) {
-    pid.initPid(30.0 /*p*/, 5.0 /*i*/, 0.0 /*d*/, 0.8 /*i_max*/, -0.8 /*i_min*/,
-                false /*antiwindup*/);
+  for (auto& pid : const_joint_position_to_effort_) {
+    pid.initPid(10.0 /*p*/, 3.0 /*i*/, 0.0 /*d*/, 0.8 /*i_max*/, -0.8 /*i_min*/,
+                true /*antiwindup*/);
   }
-  // const_joint_pid_.at(2).initPid(25.0/*p*/, 0.01/*i*/, 0.0/*d*/, 0.5/*i_max*/, -0.5/*i_min*/,
-  // true/*antiwindup*/);
+  //const_joint_pid_.at(2).initPid(10.0/*p*/, 3.0/*i*/, 0.0/*d*/, 0.5/*i_max*/, -0.5/*i_min*/, true /*antiwindup*/);
 
-  pid_x_joint_position_.initPid(0.001 /*p*/, 0.0 /*i*/, 0.0 /*d*/, 0.8 /*i_max*/, -0.8 /*i_min*/,
-                                true /*antiwindup*/);
-  pid_y_joint_position_.initPid(10.0 /*p*/, 0.0 /*i*/, 0.0 /*d*/, 0.8 /*i_max*/, -0.8 /*i_min*/,
-                                true /*antiwindup*/);
+  pid_x_joint_position_to_effort_.initPid(40.0 /*p*/, 0.0 /*i*/, 0.0 /*d*/, 1.0 /*i_max*/, -0.8 /*i_min*/,
+                          false /*antiwindup*/);
+  pid_y_joint_position_to_effort_.initPid(0.00015 /*p*/, 0.0 /*i*/, 0.0 /*d*/, 0.0 /*i_max*/, -0.15 /*i_min*/,
+                          false /*antiwindup*/);
 
-  pid_x_position_.initPid(10.0 /*p*/, 3.0 /*i*/, 0.5 /*d*/, 1.0 /*i_max*/, -0.8 /*i_min*/,
-                          true /*antiwindup*/);
-  pid_y_position_.initPid(0.00015 /*p*/, 0.0 /*i*/, 0.0 /*d*/, 0.0 /*i_max*/, -0.15 /*i_min*/,
-                          true /*antiwindup*/);
+  pid_x_error_to_joint_position_.initPid(0.03 /*p*/, 0.0 /*i*/, 0.0 /*d*/, 0.8 /*i_max*/, -0.8 /*i_min*/,
+                                true /*antiwindup*/);
+  pid_y_error_to_joint_position_.initPid(10.0 /*p*/, 0.0 /*i*/, 0.0 /*d*/, 0.8 /*i_max*/, -0.8 /*i_min*/,
+                                true /*antiwindup*/);
   last_time_ = ros::Time::now();
 
   return true;
@@ -208,11 +207,19 @@ void BalanceControllerForce::starting(const ros::Time& /*time*/) {
     current_pose_[i] = joint_handles_[i].getPosition();
   }
 
+  x_previous_ = current_pose_[5];
+
   angular_position_x_ = initial_pose_[5];
   angular_position_y_ = initial_pose_[6];
 }
 
 void BalanceControllerForce::update(const ros::Time& time, const ros::Duration& period) {
+  /*
+  ros::Duration update_time;
+  update_time.sec = 0;
+  update_time.nsec = 1e6;
+  */
+
   for (size_t i = 0; i < 7; ++i) {
     current_pose_[i] = joint_handles_[i].getPosition();
     current_error_[i] = 0.0;
@@ -239,11 +246,13 @@ void BalanceControllerForce::update(const ros::Time& time, const ros::Duration& 
     }
 
     if ((x_current < 1) && (x_current > -1)) {
-      //double delta_input = (Input - lastInput);
-      double joint_position_x = pid_x_position_.computeCommand(x_current, time - last_time_);
-      angular_position_x = -joint_position_x + initial_pose_[6];
-      double joint_position_y = pid_y_position_.computeCommand(y_current, time - last_time_);
-      angular_position_y = -joint_position_y + initial_pose_[5];
+      double x_delta_input = (x_current - x_previous_);
+      x_previous_ = x_current;
+      //double joint_position_x = pid_x_error_to_joint_position_.computeCommand(x_current, x_delta_input, time - last_time_);
+      double joint_position_x = pid_x_error_to_joint_position_.computeCommand(x_current, time - last_time_);
+      angular_position_x = joint_position_x + initial_pose_[6];
+      double joint_position_y = pid_y_error_to_joint_position_.computeCommand(y_current, time - last_time_);
+      angular_position_y = joint_position_y + initial_pose_[5];
 
       desired_position_[6] = angular_position_x;
       desired_position_[5] = angular_position_y;
@@ -251,8 +260,8 @@ void BalanceControllerForce::update(const ros::Time& time, const ros::Duration& 
       current_error_[6] = angular_position_x - current_pose_[6];
       current_error_[5] = angular_position_y - current_pose_[5];
       current_error_[4] = x_current_;
-      double effort_x = pid_x_joint_position_.computeCommand(current_error_[6], time - last_time_);
-      double effort_y = pid_y_joint_position_.computeCommand(current_error_[5], time - last_time_);
+      double effort_x = pid_x_joint_position_to_effort_.computeCommand(current_error_[6], time - last_time_);
+      double effort_y = pid_y_joint_position_to_effort_.computeCommand(current_error_[5], time - last_time_);
 
       /*
       if (-effort_x < 0)
@@ -281,14 +290,14 @@ void BalanceControllerForce::update(const ros::Time& time, const ros::Duration& 
     if (calibrate_pid_) {
       std::lock_guard<std::mutex> lock(target_mutex_);
       tau_target_[6] =
-          pid_x_position_.computeCommand(initial_pose_[6] - current_pose_[6], time - last_time_);
+          pid_x_joint_position_to_effort_.computeCommand(initial_pose_[6] - current_pose_[6], time - last_time_);
       tau_target_[5] =
-          pid_y_position_.computeCommand(initial_pose_[5] - current_pose_[5], time - last_time_);
+          pid_y_joint_position_to_effort_.computeCommand(initial_pose_[5] - current_pose_[5], time - last_time_);
     } else {
       std::lock_guard<std::mutex> lock(target_mutex_);
       for (std::size_t i = 5; i < 7; ++i) {
         tau_target_[i] =
-            const_joint_pid_[i].computeCommand(initial_pose_[i] - current_pose_[i], time - last_time_);
+            const_joint_position_to_effort_[i].computeCommand(initial_pose_[i] - current_pose_[i], time - last_time_);
       }
     }
   }
@@ -296,7 +305,7 @@ void BalanceControllerForce::update(const ros::Time& time, const ros::Duration& 
   {
     std::lock_guard<std::mutex> lock(target_mutex_);
     for (std::size_t i = 0; i < 5; ++i) {
-      tau_target_[i] = const_joint_pid_[i].computeCommand(initial_pose_[i] - current_pose_[i],
+      tau_target_[i] = const_joint_position_to_effort_[i].computeCommand(initial_pose_[i] - current_pose_[i],
                                                           time - last_time_);
     }
   }
@@ -388,8 +397,7 @@ void BalanceControllerForce::angularPositionYCallback(const std_msgs::Float32::C
 
 void BalanceControllerForce::trackingCallback(
     const ball_tracker_msgs::TrackingUpdate::ConstPtr& msg) {
-  position_initialized_ = true;
-  double alpha = 0.1;
+  double alpha = 1.0;
   double x_current_input;
   double y_current_input;
   {
@@ -402,6 +410,8 @@ void BalanceControllerForce::trackingCallback(
   // Low pass filter
   x_current_ = (1 - alpha) * x_current_ + alpha * x_current_input;
   y_current_ = (1 - alpha) * y_current_ + alpha * y_current_input;
+
+  position_initialized_ = true;
 }
 
 }  // namespace balance_controller

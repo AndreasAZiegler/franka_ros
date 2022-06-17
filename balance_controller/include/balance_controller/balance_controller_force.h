@@ -98,17 +98,18 @@ class BalanceControllerForce : public controller_interface::MultiInterfaceContro
   bool calibrate_pid_;
   bool position_initialized_;
   double x_current_;
+  double x_previous_;
   double y_current_;
   std::mutex current_mutex_;
 
   bool control_position_;
   double angular_position_x_;
   double angular_position_y_;
-  std::array<control_toolbox::Pid, 7> const_joint_pid_;
-  control_toolbox::Pid pid_x_position_;
-  control_toolbox::Pid pid_y_position_;
-  control_toolbox::Pid pid_x_joint_position_;
-  control_toolbox::Pid pid_y_joint_position_;
+  std::array<control_toolbox::Pid, 7> const_joint_position_to_effort_;
+  control_toolbox::Pid pid_x_error_to_joint_position_;
+  control_toolbox::Pid pid_y_error_to_joint_position_;
+  control_toolbox::Pid pid_x_joint_position_to_effort_;
+  control_toolbox::Pid pid_y_joint_position_to_effort_;
   ros::Time last_time_;
 };
 
