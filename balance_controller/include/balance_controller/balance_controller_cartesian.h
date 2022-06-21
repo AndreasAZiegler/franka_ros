@@ -24,11 +24,16 @@ class BalanceControllerCartesian
   void starting(const ros::Time&) override;
   void update(const ros::Time&, const ros::Duration& period) override;
 
+
  private:
   franka_hw::FrankaPoseCartesianInterface* cartesian_pose_interface_;
   std::unique_ptr<franka_hw::FrankaCartesianPoseHandle> cartesian_pose_handle_;
   ros::Duration elapsed_time_;
   std::array<double, 16> initial_pose_{};
+
+  std::size_t steps_;
+  std::vector<Eigen::Matrix<double, 4>> waypoints_;
+  std::size_t current_waypoint_;
 };
 
 }  // namespace franka_example_controllers

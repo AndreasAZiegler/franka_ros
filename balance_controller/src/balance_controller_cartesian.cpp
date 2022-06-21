@@ -69,6 +69,9 @@ bool BalanceControllerCartesian::init(hardware_interface::RobotHW* robot_hardwar
   }
   */
 
+  steps_ = 50;
+  current_waypoint_ = 0;
+
   return true;
 }
 
@@ -96,11 +99,6 @@ void BalanceControllerCartesian::starting(const ros::Time& /* time */) {
   */
 
   cartesian_pose_handle_->setCommand(initial_pose_);
-}
-
-void BalanceControllerCartesian::update(const ros::Time& /* time */,
-                                            const ros::Duration& period) {
-  elapsed_time_ += period;
 
   double radius = 0.3;
   double angle = M_PI / 4 * (1 - std::cos(M_PI / 5.0 * elapsed_time_.toSec()));
@@ -140,10 +138,31 @@ void BalanceControllerCartesian::update(const ros::Time& /* time */,
                                      result_matrix(4), result_matrix(5), result_matrix(6), result_matrix(7),
                                      result_matrix(8), result_matrix(9), result_matrix(10), result_matrix(11),
                                      result_matrix(12), result_matrix(13), result_matrix(14), result_matrix(15)};
+  
+  Eigen::Matrix<double, 3> difference = result_matrix - T_current.matrix();
 
+  std::size_t steps = 50;
+  waypoints_.clear();
+  for (std::size_t i = 0; i < steps; ++i) {
+    waypoints_.emplace_back{i / steps * difference};
+  }
+}
+
+void BalanceControllerCartesian::update(const ros::Time& time,
+                                            const ros::Duration& period) {
+  elapsed_time_ += period;
   //new_pose = initial_pose_;
   
-  cartesian_pose_handle_->setCommand(new_pose);
+  if (current_waypoint_ < steps_) {
+    const auto& result_matrix = waypoints_[current_waypoint_];
+    std::array<double, 16> new_pose = {result_matrix(0), result_matrix(1), result_matrix(2), result_matrix(3),
+                                       result_matrix(4), result_matrix(5), result_matrix(6), result_matrix(7),
+                                       result_matrix(8), result_matrix(9), result_matrix(10), result_matrix(11),
+                                       result_matrix(12), result_matrix(13), result_matrix(14), result_matrix(15)};
+
+    cartesian_pose_handle_->setCommand(new_pose);
+    current_waypoint_++;
+  }
 
   //ROS_INFO_STREAM("T_result.matrix():\n" << T_result.matrix());
   Eigen::Matrix3d rot_mat;
