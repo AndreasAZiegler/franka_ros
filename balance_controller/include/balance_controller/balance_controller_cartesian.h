@@ -5,6 +5,7 @@
 #include <array>
 #include <memory>
 #include <string>
+#include <Eigen/Geometry>
 
 #include <controller_interface/multi_interface_controller.h>
 #include <franka_hw/franka_state_interface.h>
@@ -31,8 +32,12 @@ class BalanceControllerCartesian
   ros::Duration elapsed_time_;
   std::array<double, 16> initial_pose_{};
 
+
+  Eigen::Transform<double, 3, Eigen::Affine> T_initial_;
+  Eigen::Transform<double, 3, Eigen::Affine> T_ref_;
+  Eigen::Transform<double, 3, Eigen::Affine> T_offset_;
   std::size_t steps_;
-  std::vector<Eigen::Matrix<double, 4>> waypoints_;
+  std::vector<Eigen::Matrix4d> waypoints_;
   std::size_t current_waypoint_;
 };
 
