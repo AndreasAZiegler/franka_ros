@@ -75,7 +75,28 @@ bool BalanceControllerCartesian::init(hardware_interface::RobotHW* robot_hardwar
 }
 
 void BalanceControllerCartesian::starting(const ros::Time& /* time */) {
-  initial_pose_ = cartesian_pose_handle_->getRobotState().O_T_EE_d;
+  initial_pose_ = cartesian_pose_handle_->getRobotState().O_T_EE;
+
+  /*
+  auto end_effector_frame = cartesian_pose_handle_->getRobotState().F_T_EE;
+  Eigen::Transform<double, 3, Eigen::Affine> T_end_effector_frame;
+  T_end_effector_frame.matrix() << end_effector_frame[0], end_effector_frame[4],
+      end_effector_frame[8], end_effector_frame[12], end_effector_frame[1], end_effector_frame[5],
+      end_effector_frame[9], end_effector_frame[13], end_effector_frame[2], end_effector_frame[6],
+      end_effector_frame[10], end_effector_frame[14], end_effector_frame[3], end_effector_frame[7],
+      end_effector_frame[11], end_effector_frame[15];
+  ROS_INFO_STREAM("T_end_effector_frame:\n" << T_end_effector_frame.matrix());
+
+  auto nominal_end_effector_frame = cartesian_pose_handle_->getRobotState().F_T_NE;
+  Eigen::Transform<double, 3, Eigen::Affine> T_nominal_end_effector_frame;
+  T_nominal_end_effector_frame.matrix() << nominal_end_effector_frame[0],
+      nominal_end_effector_frame[4], nominal_end_effector_frame[8], nominal_end_effector_frame[12],
+      nominal_end_effector_frame[1], nominal_end_effector_frame[5], nominal_end_effector_frame[9],
+      nominal_end_effector_frame[13], nominal_end_effector_frame[2], nominal_end_effector_frame[6],
+      nominal_end_effector_frame[10], nominal_end_effector_frame[14], nominal_end_effector_frame[3],
+      nominal_end_effector_frame[7], nominal_end_effector_frame[11], nominal_end_effector_frame[15];
+  ROS_INFO_STREAM("T_nominal_end_effector_frame:\n" << T_nominal_end_effector_frame.matrix());
+  */
 
   /*
   ROS_INFO_STREAM("initial_pose_:");
@@ -98,18 +119,6 @@ void BalanceControllerCartesian::starting(const ros::Time& /* time */) {
   }
   */
 
-  // cartesian_pose_handle_->setCommand(initial_pose_);
-
-  /*
-  double angle = M_PI / 4 * (1 - std::cos(M_PI / 5.0 * elapsed_time_.toSec()));
-  double delta_x = radius * std::sin(angle);
-  double delta_z = radius * (std::cos(angle) - 1);
-  new_pose[12] -= delta_x;
-  new_pose[13] -= delta_y;
-  new_pose[14] += delta_z;
-  */
-
-  // Eigen::Transform<double, 3, Eigen::Affine> T_initial;
   T_initial_.matrix() << initial_pose_[0], initial_pose_[4], initial_pose_[8], initial_pose_[12],
       initial_pose_[1], initial_pose_[5], initial_pose_[9], initial_pose_[13], initial_pose_[2],
       initial_pose_[6], initial_pose_[10], initial_pose_[14], initial_pose_[3], initial_pose_[7],
@@ -188,68 +197,36 @@ void BalanceControllerCartesian::starting(const ros::Time& /* time */) {
     x_value -= x_q_0;
     x_value = (1 - alpha) * previous_x_value + alpha * x_value;
     previous_x_value = x_value;
+
+void BalanceControllerCartesian::update(const ros::Time& time, const ros::Duration& period) {
+  elapsed_time_ += period;
+
+  double elapsed_time_double =
+      (static_cast<double>(elapsed_time_.sec) + static_cast<double>(elapsed_time_.nsec * 1e-9));
+  double t = elapsed_time_double / t_end_;
+
+  if (t < 1.0) {
+    // ROS_INFO_STREAM("elapsed_time_double: " << elapsed_time_double << ", t: " << t);
+    double x_value = x_f_ + x_e_ * t + x_d_ * t * t + x_c_ * t * t * t + x_b_ * t * t * t * t +
+                     x_a_ * t * t * t * t * t;
+    double y_value = y_f_ + y_e_ * t + y_d_ * t * t + y_c_ * t * t * t + y_b_ * t * t * t * t +
+                     y_a_ * t * t * t * t * t;
+    x_value -= x_q_0_;
+    y_value -= y_q_0_;
+    // x_value = (1 - alpha) * previous_x_value + alpha * x_value;
+    // previous_x_value = x_value;
     Eigen::Matrix3d rot_mat;
     rot_mat = Eigen::AngleAxisd(x_value, Eigen::Vector3d::UnitX()) *
-              Eigen::AngleAxisd(0.0, Eigen::Vector3d::UnitY()) *
+              Eigen::AngleAxisd(y_value, Eigen::Vector3d::UnitY()) *
               Eigen::AngleAxisd(0.0, Eigen::Vector3d::UnitZ());
     Eigen::Transform<double, 3, Eigen::Affine> T_rotation;
     T_rotation.linear() = rot_mat;
     T_rotation.translation() << 0.0, 0.0, 0.0;
+
     Eigen::Transform<double, 3, Eigen::Affine> T_waypoint = T_offset_ * T_rotation * T_ref_;
 
-    // ROS_INFO_STREAM("Waypoint " << i << ":\n" << T_waypoint.matrix());
-    //ROS_INFO_STREAM("Difference:\n" << T_waypoint.matrix() - T_initial_.matrix());
+    const auto& result_matrix = T_waypoint.matrix();
 
-    waypoints_.emplace_back(T_waypoint.matrix());
-  }
-
-  /*
-  double cos_value = cos(degree);
-  double sin_value = sin(degree);
-  Eigen::Transform<double, 3, Eigen::Affine> T_rotation;
-  T_rotation.matrix() << 1, 0, 0, 0, 0, cos_value, -sin_value, 0, 0, sin_value, cos_value, 0, 0, 0,
-  0, 1;
-  //ROS_INFO_STREAM("T_rotation: " << T_rotation.matrix());
-
-  Eigen::Transform<double, 3, Eigen::Affine> T_result = T_rotation * T_current;
-  */
-
-  /*
-  double angle_x = 2.92932 + degree;
-  double angle_y = -1.61303 + 0;
-  double angle_z = 1.00276;
-  T_result.matrix() << cos(angle_y) * cos(angle_z), cos(angle_z) * sin(angle_x) * sin(angle_y) -
-  cos(angle_x) * sin(angle_z), sin(angle_x) * sin(angle_z) + cos(angle_x) * cos(angle_z) *
-  sin(angle_y), 0.455991, cos(angle_y) * sin(angle_z), cos(angle_x) * cos(angle_z) + sin(angle_x) *
-  sin(angle_y) * sin(angle_z), cos(angle_x) * sin(angle_y) * sin(angle_z) - cos(angle_z) *
-  sin(angle_x), 0.421773, -sin(angle_y), cos(angle_y) * sin(angle_x), cos(angle_x) * cos(angle_y),
-  0.889305;
-   */
-  // ROS_INFO_STREAM("T_result:\n" << T_result.matrix());
-
-  /*
-  const auto& result_matrix = T_result.matrix();
-  std::array<double, 16> new_pose = {result_matrix(0), result_matrix(1), result_matrix(2),
-  result_matrix(3), result_matrix(4), result_matrix(5), result_matrix(6), result_matrix(7),
-                                     result_matrix(8), result_matrix(9), result_matrix(10),
-  result_matrix(11), result_matrix(12), result_matrix(13), result_matrix(14), result_matrix(15)};
-
-  Eigen::Matrix<double, 3> difference = result_matrix - T_current.matrix();
-
-  waypoints_.clear();
-  for (std::size_t i = 0; i < steps; ++i) {
-    waypoints_.emplace_back{i / steps * difference};
-  }
-  */
-  elapsed_time_ = ros::Duration(0.0);
-}
-
-void BalanceControllerCartesian::update(const ros::Time& /*time*/, const ros::Duration& period) {
-  elapsed_time_ += period;
-  // new_pose = initial_pose_;
-
-  if (current_waypoint_ < steps_ + 1) {
-    const auto& result_matrix = waypoints_.at(current_waypoint_);
     std::array<double, 16> new_pose = {
         result_matrix(0),  result_matrix(1),  result_matrix(2),  result_matrix(3),
         result_matrix(4),  result_matrix(5),  result_matrix(6),  result_matrix(7),
@@ -257,65 +234,7 @@ void BalanceControllerCartesian::update(const ros::Time& /*time*/, const ros::Du
         result_matrix(12), result_matrix(13), result_matrix(14), result_matrix(15)};
 
     cartesian_pose_handle_->setCommand(new_pose);
-    current_waypoint_++;
-  } else if (current_waypoint_ == steps_ + 1) {
-    ROS_INFO_STREAM("Goal reached!");
-    current_waypoint_++;
   }
-
-  /*
-  double radius = 0.3;
-  double angle = M_PI / 4 * (1 - std::cos(M_PI / 5.0 * elapsed_time_.toSec()));
-  double delta_x = radius * std::sin(angle);
-  double delta_z = radius * (std::cos(angle) - 1);
-  // std::array<double, 16> new_pose = initial_pose_;
-  // new_pose[12] -= delta_x;
-  // new_pose[14] -= delta_z;
-  Eigen::Vector3d euler_angles = T_initial_.linear().eulerAngles(2, 1, 0);
-
-  Eigen::Matrix3d rot_mat;
-  rot_mat = Eigen::AngleAxisd(angle, Eigen::Vector3d::UnitX()) *
-            Eigen::AngleAxisd(0.0, Eigen::Vector3d::UnitY()) *
-            Eigen::AngleAxisd(0.0, Eigen::Vector3d::UnitZ());
-  Eigen::Transform<double, 3, Eigen::Affine> T_rotation;
-  T_rotation.linear() = rot_mat;
-  T_rotation.translation() << 0.0, 0.0, 0.0;
-  // ROS_INFO_STREAM("T_rotation:\n" << T_rotation.matrix());
-  Eigen::Transform<double, 3, Eigen::Affine> T_waypoint = T_offset_ * T_rotation * T_ref_;
-
-  const auto& result_matrix = T_waypoint.matrix();
-  std::array<double, 16> new_pose = {
-      result_matrix(0),  result_matrix(1),  result_matrix(2),  result_matrix(3),
-      result_matrix(4),  result_matrix(5),  result_matrix(6),  result_matrix(7),
-      result_matrix(8),  result_matrix(9),  result_matrix(10), result_matrix(11),
-      result_matrix(12), result_matrix(13), result_matrix(14), result_matrix(15)};
-  cartesian_pose_handle_->setCommand(new_pose);
-  */
-
-  // ROS_INFO_STREAM("T_result.matrix():\n" << T_result.matrix());
-  /*
-  Eigen::Matrix3d rot_mat;
-  rot_mat << T_current.matrix()(0, 0), T_current.matrix()(0, 1), T_current.matrix()(0, 2),
-             T_current.matrix()(1, 0), T_current.matrix()(1, 1), T_current.matrix()(1, 2),
-             T_current.matrix()(2, 0), T_current.matrix()(2, 1), T_current.matrix()(2, 2);
-  //ROS_INFO_STREAM("rot_mat:\n" << rot_mat);
-  */
-  /*
-  Eigen::Vector3d euler_angles = rot_mat.eulerAngles(2, 1, 0);
-  ROS_INFO_STREAM("euler_angles:\n" << euler_angles);
-  */
-
-  /*
-  ROS_INFO_STREAM("T_result:\n" << T_result.matrix());
-  ROS_INFO_STREAM("new_pose:");
-  for (const auto& element : new_pose) {
-    ROS_INFO_STREAM(element);
-  }
-  ROS_INFO_STREAM("Differences:");
-  for (std::size_t i = 0; i < new_pose.size(); ++i) {
-    ROS_INFO_STREAM(i << ": " << new_pose[i] - initial_pose_[i]);
-  }
-  */
 }
 
 }  // namespace balance_controller
