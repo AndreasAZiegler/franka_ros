@@ -59,8 +59,8 @@ class BalanceControllerCartesian
 
   ros::Duration elapsed_time_;
 
-  Eigen::Transform<double, 3, Eigen::Affine> T_current_;
-  Eigen::Transform<double, 3, Eigen::Affine> T_ref_;
+  Eigen::Transform<double, 3, Eigen::Affine> T_base_end_current_;
+  Eigen::Transform<double, 3, Eigen::Affine> T_base_end_ref_;
   Eigen::Transform<double, 3, Eigen::Affine> T_offset_;
   std::vector<Eigen::Matrix4d> waypoints_;
 

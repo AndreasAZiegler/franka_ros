@@ -129,83 +129,24 @@ void BalanceControllerCartesian::starting(const ros::Time& /* time */) {
   }
   */
 
-  T_current_.matrix() << current_pose_[0], current_pose_[4], current_pose_[8], current_pose_[12],
+  T_base_end_current_.matrix() << current_pose_[0], current_pose_[4], current_pose_[8], current_pose_[12],
       current_pose_[1], current_pose_[5], current_pose_[9], current_pose_[13], current_pose_[2],
       current_pose_[6], current_pose_[10], current_pose_[14], current_pose_[3], current_pose_[7],
       current_pose_[11], current_pose_[15];
-  ROS_INFO_STREAM("T_initial_:\n" << T_current_.matrix());
+  ROS_INFO_STREAM("T_base_end_current_:\n" << T_base_end_current_.matrix());
 
-  T_ref_ = T_current_;
-  T_ref_.translation() << 0.0, 0.0, 0.0;
+  T_base_end_ref_ = T_base_end_current_;
+  T_base_end_ref_.translation() << 0.0, 0.0, 0.0;
   // ROS_INFO_STREAM("T_ref_:\n" << T_ref_.matrix());
 
   T_offset_.linear().setIdentity();
-  T_offset_.translation() = T_current_.translation();
+  T_offset_.translation() = T_base_end_current_.translation();
   // ROS_INFO_STREAM("T_offset_:\n" << T_offset_.matrix());
 
-  Eigen::Vector3d euler_angles = T_current_.linear().eulerAngles(2, 1, 0);
+  Eigen::Vector3d euler_angles = T_base_end_current_.linear().eulerAngles(2, 1, 0);
   ROS_INFO_STREAM("euler angles: x: " << euler_angles(2) * 180 / M_PI
                                       << ", y: " << euler_angles(1) * 180 / M_PI
                                       << ", z: " << euler_angles(0) * 180 / M_PI);
-
-  /*
-  double rad = 5.0 * M_PI / 180;
-
-  Eigen::Matrix3d rot_mat;
-  rot_mat = Eigen::AngleAxisd(rad, Eigen::Vector3d::UnitX()) *
-            Eigen::AngleAxisd(0.0, Eigen::Vector3d::UnitY()) *
-            Eigen::AngleAxisd(0.0, Eigen::Vector3d::UnitZ());
-  Eigen::Transform<double, 3, Eigen::Affine> T_rotation;
-  T_rotation.linear() = rot_mat;
-  T_rotation.translation() << 0.0, 0.0, 0.0;
-  // ROS_INFO_STREAM("T_rotation:\n" << T_rotation.matrix());
-  Eigen::Transform<double, 3, Eigen::Affine> T_end = T_offset_ * T_rotation * T_ref_;
-  // ROS_INFO_STREAM("T_end:\n" << T_end.matrix());
-
-  // Constraints
-  x_q_0_ = euler_angles(2);
-  y_q_0_ = euler_angles(1);
-
-  double x_q_1 = x_q_0_ + rad;
-  double y_q_1 = y_q_0_ - rad;
-
-  double x_v_0 = 0;
-  double y_v_0 = 0;
-
-  double x_v_1 = 0;
-  double y_v_1 = 0;
-
-  double x_a_0 = 0;
-  double y_a_0 = 0;
-
-  double x_a_1 = 0;
-  double y_a_1 = 0;
-
-  t_end_ = 0.25;
-
-  Eigen::Matrix<double, 6, 6> A;
-  Eigen::Matrix<double, 6, 1> constraints;
-  A << 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 0, 5, 4, 3, 2, 1, 0, 0, 0, 0, 2, 0, 0, 20,
-      12, 6, 2, 0, 0;
-
-  constraints << x_q_0_, x_q_1, x_v_0, x_v_1, x_a_0, x_a_1;
-  Eigen::Matrix<double, 6, 1> x_params = A.colPivHouseholderQr().solve(constraints);
-  x_a_ = x_params(0);
-  x_b_ = x_params(1);
-  x_c_ = x_params(2);
-  x_d_ = x_params(3);
-  x_e_ = x_params(4);
-  x_f_ = x_params(5);
-
-  constraints << y_q_0_, y_q_1, y_v_0, y_v_1, y_a_0, y_a_1;
-  Eigen::Matrix<double, 6, 1> y_params = A.colPivHouseholderQr().solve(constraints);
-  y_a_ = y_params(0);
-  y_b_ = y_params(1);
-  y_c_ = y_params(2);
-  y_d_ = y_params(3);
-  y_e_ = y_params(4);
-  y_f_ = y_params(5);
-  */
 
   elapsed_time_ = ros::Duration(0.0);
 }
@@ -241,7 +182,8 @@ void BalanceControllerCartesian::update(const ros::Time& time, const ros::Durati
       T_rotation.linear() = rot_mat;
       T_rotation.translation() << 0.0, 0.0, 0.0;
 
-      Eigen::Transform<double, 3, Eigen::Affine> T_waypoint = T_offset_ * T_rotation * T_ref_;
+      //Eigen::Transform<double, 3, Eigen::Affine> T_waypoint = T_offset_ * T_rotation * T_ref_;
+      Eigen::Transform<double, 3, Eigen::Affine> T_waypoint = T_base_end_ref_ * T_rotation;
 
       const auto& waypoint_matrix = T_waypoint.matrix();
 
@@ -253,7 +195,7 @@ void BalanceControllerCartesian::update(const ros::Time& time, const ros::Durati
 
       cartesian_pose_handle_->setCommand(waypoint);
 
-      //publishTargetState(T_waypoint);
+      publishTargetState(T_waypoint);
     } else {
       position_initialized_ = false;
     }
@@ -261,7 +203,7 @@ void BalanceControllerCartesian::update(const ros::Time& time, const ros::Durati
     cartesian_pose_handle_->setCommand(current_pose_);
   }
 
-  //publishCurrentState();
+  publishCurrentState();
 }
 
 void BalanceControllerCartesian::publishTargetState(
@@ -304,27 +246,25 @@ void BalanceControllerCartesian::publishCurrentState() {
 void BalanceControllerCartesian::gotToPosition() {
   current_pose_ = cartesian_pose_handle_->getRobotState().O_T_EE_d;
 
-  T_current_.matrix() << current_pose_[0], current_pose_[4], current_pose_[8], current_pose_[12],
+  T_base_end_current_.matrix() << current_pose_[0], current_pose_[4], current_pose_[8], current_pose_[12],
       current_pose_[1], current_pose_[5], current_pose_[9], current_pose_[13], current_pose_[2],
       current_pose_[6], current_pose_[10], current_pose_[14], current_pose_[3], current_pose_[7],
       current_pose_[11], current_pose_[15];
-  ROS_INFO_STREAM("T_initial_:\n" << T_current_.matrix());
+  ROS_INFO_STREAM("T_base_end_current_:\n" << T_base_end_current_.matrix());
 
-  T_ref_ = T_current_;
-  T_ref_.translation() << 0.0, 0.0, 0.0;
+  T_base_end_ref_ = T_base_end_current_;
+  //T_ref_.translation() << 0.0, 0.0, 0.0;
   // ROS_INFO_STREAM("T_ref_:\n" << T_ref_.matrix());
 
   T_offset_.linear().setIdentity();
-  T_offset_.translation() = T_current_.translation();
+  T_offset_.translation() = T_base_end_current_.translation();
   // ROS_INFO_STREAM("T_offset_:\n" << T_offset_.matrix());
 
-  Eigen::Vector3d euler_angles = T_current_.linear().eulerAngles(2, 1, 0);
+  Eigen::Vector3d euler_angles = T_base_end_current_.linear().eulerAngles(2, 1, 0);
   ROS_INFO_STREAM("euler angles: x: " << euler_angles(2) * 180 / M_PI
                                       << ", y: " << euler_angles(1) * 180 / M_PI
                                       << ", z: " << euler_angles(0) * 180 / M_PI);
 
-  //ROS_INFO_STREAM("x angle difference: " << (position_x_ - euler_angles(2)) * 180 / M_PI << "deg");
-  //ROS_INFO_STREAM("y angle difference: " << (position_y_ - euler_angles(1)) * 180 / M_PI << "deg");
   Eigen::Matrix3d rot_mat;
   rot_mat = Eigen::AngleAxisd(position_x_, Eigen::Vector3d::UnitX()) *
             Eigen::AngleAxisd(position_y_, Eigen::Vector3d::UnitY()) *
@@ -333,7 +273,8 @@ void BalanceControllerCartesian::gotToPosition() {
   T_rotation.linear() = rot_mat;
   T_rotation.translation() << 0.0, 0.0, 0.0;
   // ROS_INFO_STREAM("T_rotation:\n" << T_rotation.matrix());
-  Eigen::Transform<double, 3, Eigen::Affine> T_end = T_offset_ * T_rotation * T_ref_;
+  //Eigen::Transform<double, 3, Eigen::Affine> T_end = T_offset_ * T_rotation * T_ref_;
+  Eigen::Transform<double, 3, Eigen::Affine> T_end = T_base_end_ref_ * T_rotation;
   // ROS_INFO_STREAM("T_end:\n" << T_end.matrix());
 
   // Constraints
@@ -345,23 +286,6 @@ void BalanceControllerCartesian::gotToPosition() {
 
   //auto x_angle_difference = position_x_ - euler_angles(2);
   //auto y_angle_difference = position_y_ - euler_angles(1);
-  /*
-  if (position_x_ > 0) {
-    x_q_1 -= fabs(position_x_);
-    y_q_1 -= fabs(position_x_);
-  } else if (position_x_ < 0) {
-    x_q_1 += fabs(position_x_);
-    y_q_1 += fabs(position_x_);
-  }
-
-  if (position_y_ > 0) {
-    x_q_1 -= fabs(position_y_);
-    y_q_1 += fabs(position_y_);
-  } else if (position_y_ < 0) {
-    x_q_1 += fabs(position_y_);
-    y_q_1 -= fabs(position_y_);
-  }
-  */
 
   double x_v_0 = 0;
   double y_v_0 = 0;
@@ -419,11 +343,11 @@ void BalanceControllerCartesian::positionXCallback(const std_msgs::Float32::Cons
     position_x_ = msg->data * M_PI / 180;
     ROS_WARN_STREAM("position_x_: " << msg->data << "deg");
 
-    T_current_.matrix() << current_pose_[0], current_pose_[4], current_pose_[8], current_pose_[12],
+    T_base_end_current_.matrix() << current_pose_[0], current_pose_[4], current_pose_[8], current_pose_[12],
         current_pose_[1], current_pose_[5], current_pose_[9], current_pose_[13], current_pose_[2],
         current_pose_[6], current_pose_[10], current_pose_[14], current_pose_[3], current_pose_[7],
         current_pose_[11], current_pose_[15];
-    Eigen::Vector3d euler_angles = T_current_.linear().eulerAngles(2, 1, 0);
+    Eigen::Vector3d euler_angles = T_base_end_current_.linear().eulerAngles(2, 1, 0);
     //position_y_ = euler_angles(1);
 
     gotToPosition();
@@ -436,11 +360,11 @@ void BalanceControllerCartesian::positionYCallback(const std_msgs::Float32::Cons
     position_y_ = msg->data * M_PI / 180;
     ROS_WARN_STREAM("position_y_: " << msg->data << "deg");
 
-    T_current_.matrix() << current_pose_[0], current_pose_[4], current_pose_[8], current_pose_[12],
+    T_base_end_current_.matrix() << current_pose_[0], current_pose_[4], current_pose_[8], current_pose_[12],
         current_pose_[1], current_pose_[5], current_pose_[9], current_pose_[13], current_pose_[2],
         current_pose_[6], current_pose_[10], current_pose_[14], current_pose_[3], current_pose_[7],
         current_pose_[11], current_pose_[15];
-    Eigen::Vector3d euler_angles = T_current_.linear().eulerAngles(2, 1, 0);
+    Eigen::Vector3d euler_angles = T_base_end_current_.linear().eulerAngles(2, 1, 0);
     //position_x_ = euler_angles(2);
 
     gotToPosition();
