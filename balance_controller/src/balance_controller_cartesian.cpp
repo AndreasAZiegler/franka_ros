@@ -266,8 +266,13 @@ void BalanceControllerCartesian::gotToPosition() {
                                       << ", z: " << euler_angles(0) * 180 / M_PI);
 
   Eigen::Matrix3d rot_mat;
-  rot_mat = Eigen::AngleAxisd(position_x_, Eigen::Vector3d::UnitX()) *
-            Eigen::AngleAxisd(position_y_, Eigen::Vector3d::UnitY()) *
+  double x_diff = position_x_ - euler_angles(2);
+  double y_diff = position_y_ - euler_angles(1);
+  ROS_INFO_STREAM("x_diff: " << x_diff);
+  ROS_INFO_STREAM("y_diff: " << y_diff);
+
+  rot_mat = Eigen::AngleAxisd(x_diff, Eigen::Vector3d::UnitX()) *
+            Eigen::AngleAxisd(y_diff, Eigen::Vector3d::UnitY()) *
             Eigen::AngleAxisd(0.0, Eigen::Vector3d::UnitZ());
   Eigen::Transform<double, 3, Eigen::Affine> T_rotation;
   T_rotation.linear() = rot_mat;
@@ -281,11 +286,8 @@ void BalanceControllerCartesian::gotToPosition() {
   x_q_0_ = euler_angles(2);
   y_q_0_ = euler_angles(1);
 
-  double x_q_1 = x_q_0_ + position_x_;
-  double y_q_1 = y_q_0_ + position_y_;
-
-  //auto x_angle_difference = position_x_ - euler_angles(2);
-  //auto y_angle_difference = position_y_ - euler_angles(1);
+  double x_q_1 = position_x_;
+  double y_q_1 = position_y_;
 
   double x_v_0 = 0;
   double y_v_0 = 0;
@@ -300,7 +302,7 @@ void BalanceControllerCartesian::gotToPosition() {
   double y_a_1 = 0;
 
   double max_velocity = 2.5 /*rad/s*/;
-  t_end_ = 2.0 * (position_x_ + position_y_) / max_velocity;
+  t_end_ = 2.0 * (fabs(x_diff) + fabs(y_diff)) / max_velocity;
   ROS_WARN_STREAM("t_end_: " << t_end_);
   t_end_ = std::max(t_end_, 0.5);
   ROS_WARN_STREAM("t_end_: " << t_end_);
@@ -348,7 +350,7 @@ void BalanceControllerCartesian::positionXCallback(const std_msgs::Float32::Cons
         current_pose_[6], current_pose_[10], current_pose_[14], current_pose_[3], current_pose_[7],
         current_pose_[11], current_pose_[15];
     Eigen::Vector3d euler_angles = T_base_end_current_.linear().eulerAngles(2, 1, 0);
-    //position_y_ = euler_angles(1);
+    position_y_ = euler_angles(1);
 
     gotToPosition();
     position_initialized_ = true;
@@ -365,7 +367,7 @@ void BalanceControllerCartesian::positionYCallback(const std_msgs::Float32::Cons
         current_pose_[6], current_pose_[10], current_pose_[14], current_pose_[3], current_pose_[7],
         current_pose_[11], current_pose_[15];
     Eigen::Vector3d euler_angles = T_base_end_current_.linear().eulerAngles(2, 1, 0);
-    //position_x_ = euler_angles(2);
+    position_x_ = euler_angles(2);
 
     gotToPosition();
     position_initialized_ = true;
