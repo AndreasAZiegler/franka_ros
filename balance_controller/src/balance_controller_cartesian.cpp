@@ -16,6 +16,14 @@
 
 namespace balance_controller {
 
+double constrainAngle(double x) {
+  x = fmod(x, 2 * M_PI);
+  if (x < 0) {
+    x += 2 * M_PI;
+  }
+  return x;
+}
+
 bool BalanceControllerCartesian::init(hardware_interface::RobotHW* robot_hardware,
                                       ros::NodeHandle& node_handle) {
   control_position_ = false;
@@ -129,10 +137,10 @@ void BalanceControllerCartesian::starting(const ros::Time& /* time */) {
   }
   */
 
-  T_base_end_current_.matrix() << current_pose_[0], current_pose_[4], current_pose_[8], current_pose_[12],
-      current_pose_[1], current_pose_[5], current_pose_[9], current_pose_[13], current_pose_[2],
-      current_pose_[6], current_pose_[10], current_pose_[14], current_pose_[3], current_pose_[7],
-      current_pose_[11], current_pose_[15];
+  T_base_end_current_.matrix() << current_pose_[0], current_pose_[4], current_pose_[8],
+      current_pose_[12], current_pose_[1], current_pose_[5], current_pose_[9], current_pose_[13],
+      current_pose_[2], current_pose_[6], current_pose_[10], current_pose_[14], current_pose_[3],
+      current_pose_[7], current_pose_[11], current_pose_[15];
   ROS_INFO_STREAM("T_base_end_current_:\n" << T_base_end_current_.matrix());
 
   T_base_end_ref_ = T_base_end_current_;
@@ -144,15 +152,20 @@ void BalanceControllerCartesian::starting(const ros::Time& /* time */) {
   // ROS_INFO_STREAM("T_offset_:\n" << T_offset_.matrix());
 
   Eigen::Vector3d euler_angles = T_base_end_current_.linear().eulerAngles(2, 1, 0);
-  ROS_INFO_STREAM("euler angles: x: " << euler_angles(2) * 180 / M_PI
-                                      << ", y: " << euler_angles(1) * 180 / M_PI
-                                      << ", z: " << euler_angles(0) * 180 / M_PI);
+  ROS_INFO_STREAM("euler angles: x: " << constrainAngle(euler_angles(2)) * 180 / M_PI
+                                      << ", y: " << constrainAngle(euler_angles(1)) * 180 / M_PI
+                                      << ", z: " << constrainAngle(euler_angles(0)) * 180 / M_PI);
 
   elapsed_time_ = ros::Duration(0.0);
 }
 
 void BalanceControllerCartesian::update(const ros::Time& time, const ros::Duration& period) {
-  current_pose_ = cartesian_pose_handle_->getRobotState().O_T_EE_d;
+  // current_pose_ = cartesian_pose_handle_->getRobotState().O_T_EE_d;
+  const auto& robot_state = cartesian_pose_handle_->getRobotState();
+  current_pose_ = robot_state.O_T_EE_c;
+  auto dq = robot_state.dq;
+  auto dq_d = robot_state.dq_d;
+  auto ddq_d = robot_state.ddq_d;
 
   elapsed_time_ += period;
 
@@ -161,14 +174,47 @@ void BalanceControllerCartesian::update(const ros::Time& time, const ros::Durati
   double t = elapsed_time_double / t_end_;
 
   if (control_position_ && position_initialized_) {
-    if (t < 1.0) {
+    if (t <= 1.0) {
       // ROS_INFO_STREAM("elapsed_time_double: " << elapsed_time_double << ", t: " << t);
       double x_value = x_f_ + x_e_ * t + x_d_ * t * t + x_c_ * t * t * t + x_b_ * t * t * t * t +
                        x_a_ * t * t * t * t * t;
+      double x_velocity =
+          5 * x_a_ * t * t * t * t + 4 * x_b_ * t * t * t + 3 * x_c_ * t * t + 2 * x_d_ * t + x_e_;
+      double x_acceleration = 20 * x_a_ * t * t * t + 12 * x_b_ * t * t + 6 * x_c_ * t + 2 * x_d_;
       double y_value = y_f_ + y_e_ * t + y_d_ * t * t + y_c_ * t * t * t + y_b_ * t * t * t * t +
                        y_a_ * t * t * t * t * t;
+      double y_velocity =
+          5 * y_a_ * t * t * t * t + 4 * y_b_ * t * t * t + 3 * y_c_ * t * t + 2 * y_d_ * t + y_e_;
+      double y_acceleration = 20 * y_a_ * t * t * t + 12 * y_b_ * t * t + 6 * y_c_ * t + 2 * y_d_;
       x_value -= x_q_0_;
       y_value -= y_q_0_;
+
+      /*
+      measured_joint_velocity_.emplace_back(dq.at(5));
+      double dt = static_cast<double>(period.sec) + static_cast<double>(period.nsec * 1e-9);
+      periods_.emplace_back(dt);
+      x_values_.emplace_back(x_value);
+      y_values_.emplace_back(y_value);
+      x_velocity_.emplace_back(x_velocity);
+      y_velocity_.emplace_back(y_velocity);
+      x_velocity_delta_.emplace_back((x_velocity - dq_d.at(5)) / dt);
+      y_velocity_delta_.emplace_back((y_velocity - dq_d.at(6)) / dt);
+      x_velocity_deviation_.emplace_back((previous_x_velocity_ - dq_d.at(5)));
+      y_velocity_deviation_.emplace_back((previous_y_velocity_ - dq_d.at(6)));
+      x_acceleration_.emplace_back(x_acceleration);
+      y_acceleration_.emplace_back(y_acceleration);
+      x_acceleration_delta_.emplace_back((x_acceleration - ddq_d.at(5)) / dt);
+      y_acceleration_delta_.emplace_back((y_acceleration - ddq_d.at(6)) / dt);
+      x_acceleration_deviation_.emplace_back((previous_x_acceleration_ - ddq_d.at(5)));
+      y_acceleration_deviation_.emplace_back((previous_y_acceleration_ - ddq_d.at(6)));
+
+      previous_x_value_ = x_value;
+      previous_y_value_ = y_value;
+      previous_x_velocity_ = x_velocity;
+      previous_y_velocity_ = y_velocity;
+      previous_x_acceleration_ = x_acceleration;
+      previous_y_acceleration_ = y_acceleration;
+      */
 
       // Low-pass filter
       // x_value = (1 - alpha) * previous_x_value + alpha * x_value;
@@ -176,13 +222,13 @@ void BalanceControllerCartesian::update(const ros::Time& time, const ros::Durati
 
       Eigen::Matrix3d rot_mat;
       rot_mat = Eigen::AngleAxisd(x_value, Eigen::Vector3d::UnitX()) *
-                Eigen::AngleAxisd(y_value, Eigen::Vector3d::UnitY()) *
+                Eigen::AngleAxisd(-y_value, Eigen::Vector3d::UnitY()) *
                 Eigen::AngleAxisd(0.0, Eigen::Vector3d::UnitZ());
       Eigen::Transform<double, 3, Eigen::Affine> T_rotation;
       T_rotation.linear() = rot_mat;
       T_rotation.translation() << 0.0, 0.0, 0.0;
 
-      //Eigen::Transform<double, 3, Eigen::Affine> T_waypoint = T_offset_ * T_rotation * T_ref_;
+      // Eigen::Transform<double, 3, Eigen::Affine> T_waypoint = T_offset_ * T_rotation * T_ref_;
       Eigen::Transform<double, 3, Eigen::Affine> T_waypoint = T_base_end_ref_ * T_rotation;
 
       const auto& waypoint_matrix = T_waypoint.matrix();
@@ -195,15 +241,80 @@ void BalanceControllerCartesian::update(const ros::Time& time, const ros::Durati
 
       cartesian_pose_handle_->setCommand(waypoint);
 
-      publishTargetState(T_waypoint);
+      // publishTargetState(T_waypoint);
     } else {
       position_initialized_ = false;
+      /*
+      ROS_WARN_STREAM("periods_ [ms]:");
+      for (const auto& value : periods_) {
+        std::cerr << value * 1e3 << ", ";
+      }
+      std::cerr << std::endl;
+
+      ROS_WARN_STREAM("x_velocity_deviation_:");
+      for (const auto& x_value : x_velocity_deviation_) {
+        std::cerr << x_value << ", ";
+      }
+      std::cerr << std::endl;
+      ROS_WARN_STREAM("x_velocity_delta_:");
+      for (const auto& x_value : x_velocity_delta_) {
+        std::cerr << x_value << ", ";
+      }
+      std::cerr << std::endl;
+      ROS_WARN_STREAM("x_acceleration_deviation_:");
+      for (const auto& x_value : x_acceleration_deviation_) {
+        std::cerr << x_value << ", ";
+      }
+      std::cerr << std::endl;
+      ROS_WARN_STREAM("x_acceleration_delta_:");
+      for (const auto& x_value : x_acceleration_delta_) {
+        std::cerr << x_value << ", ";
+      }
+      std::cerr << std::endl;
+
+      ROS_WARN_STREAM("y_velocity_deviation_:");
+      for (const auto& y_value : y_velocity_deviation_) {
+        std::cerr << y_value << ", ";
+      }
+      std::cerr << std::endl;
+      ROS_WARN_STREAM("y_velocity_delta_:");
+      for (const auto& y_value : y_velocity_delta_) {
+        std::cerr << y_value << ", ";
+      }
+      std::cerr << std::endl;
+      ROS_WARN_STREAM("y_acceleration_deviation_:");
+      for (const auto& y_value : y_acceleration_deviation_) {
+        std::cerr << y_value << ", ";
+      }
+      std::cerr << std::endl;
+      ROS_WARN_STREAM("y_acceleration_delta_:");
+      for (const auto& y_value : y_acceleration_delta_) {
+        std::cerr << y_value << ", ";
+      }
+      std::cerr << std::endl;
+      */
+
+      T_base_end_current_.matrix() << current_pose_[0], current_pose_[4], current_pose_[8],
+          current_pose_[12], current_pose_[1], current_pose_[5], current_pose_[9],
+          current_pose_[13], current_pose_[2], current_pose_[6], current_pose_[10],
+          current_pose_[14], current_pose_[3], current_pose_[7], current_pose_[11],
+          current_pose_[15];
+
+      Eigen::Vector3d euler_angles = T_base_end_current_.linear().eulerAngles(2, 1, 0);
+      ROS_INFO_STREAM("euler angles: x: " << euler_angles(2) * 180 / M_PI
+                                          << ", y: " << euler_angles(1) * 180 / M_PI
+                                          << ", z: " << euler_angles(0) * 180 / M_PI);
+
+      double normalized_x_angle = constrainAngle(euler_angles(2));
+      double normalized_y_angle = constrainAngle(euler_angles(1));
+      ROS_INFO_STREAM("normalized angles x: " << normalized_x_angle * 180 / M_PI
+                                              << ", y: " << normalized_y_angle * 180 / M_PI);
     }
   } else {
     cartesian_pose_handle_->setCommand(current_pose_);
   }
 
-  publishCurrentState();
+  // publishCurrentState();
 }
 
 void BalanceControllerCartesian::publishTargetState(
@@ -243,17 +354,26 @@ void BalanceControllerCartesian::publishCurrentState() {
   }
 }
 
-void BalanceControllerCartesian::gotToPosition() {
-  current_pose_ = cartesian_pose_handle_->getRobotState().O_T_EE_d;
+double capValue(double value) {
+  if (fabs(value) < 1e-4) {
+    return 0.0;
+  } else {
+    return value;
+  }
+}
 
-  T_base_end_current_.matrix() << current_pose_[0], current_pose_[4], current_pose_[8], current_pose_[12],
-      current_pose_[1], current_pose_[5], current_pose_[9], current_pose_[13], current_pose_[2],
-      current_pose_[6], current_pose_[10], current_pose_[14], current_pose_[3], current_pose_[7],
-      current_pose_[11], current_pose_[15];
+void BalanceControllerCartesian::goToPosition() {
+  // current_pose_ = cartesian_pose_handle_->getRobotState().O_T_EE_d;
+  current_pose_ = cartesian_pose_handle_->getRobotState().O_T_EE_c;
+
+  T_base_end_current_.matrix() << current_pose_[0], current_pose_[4], current_pose_[8],
+      current_pose_[12], current_pose_[1], current_pose_[5], current_pose_[9], current_pose_[13],
+      current_pose_[2], current_pose_[6], current_pose_[10], current_pose_[14], current_pose_[3],
+      current_pose_[7], current_pose_[11], current_pose_[15];
   ROS_INFO_STREAM("T_base_end_current_:\n" << T_base_end_current_.matrix());
 
   T_base_end_ref_ = T_base_end_current_;
-  //T_ref_.translation() << 0.0, 0.0, 0.0;
+  // T_ref_.translation() << 0.0, 0.0, 0.0;
   // ROS_INFO_STREAM("T_ref_:\n" << T_ref_.matrix());
 
   T_offset_.linear().setIdentity();
@@ -266,10 +386,14 @@ void BalanceControllerCartesian::gotToPosition() {
                                       << ", z: " << euler_angles(0) * 180 / M_PI);
 
   Eigen::Matrix3d rot_mat;
-  double x_diff = position_x_ - euler_angles(2);
-  double y_diff = position_y_ - euler_angles(1);
-  ROS_INFO_STREAM("x_diff: " << x_diff);
-  ROS_INFO_STREAM("y_diff: " << y_diff);
+  double normalized_x_angle = constrainAngle(euler_angles(2));
+  double normalized_y_angle = constrainAngle(euler_angles(1));
+  ROS_INFO_STREAM("normalized angles x: " << normalized_x_angle * 180 / M_PI
+                                          << ", y: " << normalized_y_angle * 180 / M_PI);
+  double x_diff = position_x_ - normalized_x_angle;
+  double y_diff = position_y_ - normalized_y_angle;
+  ROS_INFO_STREAM("x_diff: " << x_diff * 180 / M_PI);
+  ROS_INFO_STREAM("y_diff: " << y_diff * 180 / M_PI);
 
   rot_mat = Eigen::AngleAxisd(x_diff, Eigen::Vector3d::UnitX()) *
             Eigen::AngleAxisd(y_diff, Eigen::Vector3d::UnitY()) *
@@ -278,59 +402,148 @@ void BalanceControllerCartesian::gotToPosition() {
   T_rotation.linear() = rot_mat;
   T_rotation.translation() << 0.0, 0.0, 0.0;
   // ROS_INFO_STREAM("T_rotation:\n" << T_rotation.matrix());
-  //Eigen::Transform<double, 3, Eigen::Affine> T_end = T_offset_ * T_rotation * T_ref_;
+  // Eigen::Transform<double, 3, Eigen::Affine> T_end = T_offset_ * T_rotation * T_ref_;
   Eigen::Transform<double, 3, Eigen::Affine> T_end = T_base_end_ref_ * T_rotation;
   // ROS_INFO_STREAM("T_end:\n" << T_end.matrix());
 
-  // Constraints
-  x_q_0_ = euler_angles(2);
-  y_q_0_ = euler_angles(1);
+  double x_max_acceleration = 0.0;
+  double x_max_jerk = 0.0;
+  if (fabs(x_diff) > 1e-3) {
+    // Constraints
+    x_q_0_ = normalized_x_angle;
 
-  double x_q_1 = position_x_;
-  double y_q_1 = position_y_;
+    double x_q_1 = position_x_;
 
-  double x_v_0 = 0;
-  double y_v_0 = 0;
+    double x_v_0 = 0;
 
-  double x_v_1 = 0;
-  double y_v_1 = 0;
+    double x_v_1 = 0;
 
-  double x_a_0 = 0;
-  double y_a_0 = 0;
+    double x_a_0 = 0;
 
-  double x_a_1 = 0;
-  double y_a_1 = 0;
+    double x_a_1 = 0;
 
-  double max_velocity = 2.5 /*rad/s*/;
-  t_end_ = 2.0 * (fabs(x_diff) + fabs(y_diff)) / max_velocity;
+    Eigen::Matrix<double, 6, 6> A;
+    Eigen::Matrix<double, 6, 1> constraints;
+    A << 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 0, 5, 4, 3, 2, 1, 0, 0, 0, 0, 2, 0, 0,
+        20, 12, 6, 2, 0, 0;
+
+    constraints << x_q_0_, x_q_1, x_v_0, x_v_1, x_a_0, x_a_1;
+    Eigen::Matrix<double, 6, 1> x_params = A.colPivHouseholderQr().solve(constraints);
+    x_a_ = capValue(x_params(0));
+    x_b_ = capValue(x_params(1));
+    x_c_ = capValue(x_params(2));
+    x_d_ = capValue(x_params(3));
+    x_e_ = capValue(x_params(4));
+    x_f_ = capValue(x_params(5));
+    ROS_WARN_STREAM("x_params: " << x_params);
+
+    std::vector<double> t_max;
+    double x_t_max_1 = -x_b_ / (5.0 * x_a_) +
+                       sqrt((4.0 * x_b_ * x_b_) / (100.0 * x_a_ * x_a_) - x_c_ / (10.0 * x_a_));
+    if (x_t_max_1 >= 0.0 && x_t_max_1 <= 1.0) {
+      t_max.emplace_back(x_t_max_1);
+    }
+    double x_t_max_2 = -x_b_ / (5.0 * x_a_) -
+                       sqrt((4.0 * x_b_ * x_b_) / (100.0 * x_a_ * x_a_) - x_c_ / (10.0 * x_a_));
+    if (x_t_max_2 >= 0.0 && x_t_max_2 <= 1.0) {
+      t_max.emplace_back(x_t_max_2);
+    }
+    std::vector<double> x_max_accelerations;
+    for (const auto& t : t_max) {
+      double x_max_acceleration =
+          20 * x_a_ * t * t * t + 12 * x_b_ * t * t + 6 * x_c_ * t + 2 * x_d_;
+      // ROS_WARN_STREAM("x_max_acceleration: " << x_max_acceleration);
+      x_max_accelerations.emplace_back(fabs(x_max_acceleration));
+    }
+    x_max_acceleration = *std::max_element(x_max_accelerations.begin(), x_max_accelerations.end());
+    ROS_WARN_STREAM("x_max_acceleration: " << x_max_acceleration);
+
+    double t_x_max_jerk = -24.0 * x_b_ / (120.0 * x_a_);
+    x_max_jerk =
+        60.0 * x_a_ * t_x_max_jerk * t_x_max_jerk + 24.0 * x_b_ * t_x_max_jerk + 6.0 * x_c_;
+    ROS_WARN_STREAM("x max jerk: " << x_max_jerk);
+  } else {
+    x_a_ = 0.0;
+    x_b_ = 0.0;
+    x_c_ = 0.0;
+    x_d_ = 0.0;
+    x_e_ = 0.0;
+    x_f_ = 0.0;
+  }
+
+  double y_max_acceleration = 0.0;
+  double y_max_jerk = 0.0;
+  if (fabs(y_diff) > 1e-3) {
+    // Constraints
+    y_q_0_ = normalized_y_angle;
+
+    double y_q_1 = position_y_;
+
+    double y_v_0 = 0;
+
+    double y_v_1 = 0;
+
+    double y_a_0 = 0;
+
+    double y_a_1 = 0;
+
+    Eigen::Matrix<double, 6, 6> A;
+    Eigen::Matrix<double, 6, 1> constraints;
+
+    A << 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 0, 5, 4, 3, 2, 1, 0, 0, 0, 0, 2, 0, 0,
+        20, 12, 6, 2, 0, 0;
+
+    constraints << y_q_0_, y_q_1, y_v_0, y_v_1, y_a_0, y_a_1;
+    Eigen::Matrix<double, 6, 1> y_params = A.colPivHouseholderQr().solve(constraints);
+    y_a_ = capValue(y_params(0));
+    y_b_ = capValue(y_params(1));
+    y_c_ = capValue(y_params(2));
+    y_d_ = capValue(y_params(3));
+    y_e_ = capValue(y_params(4));
+    y_f_ = capValue(y_params(5));
+    ROS_WARN_STREAM("y_params: " << y_params);
+
+    std::vector<double> t_max;
+    double y_t_max_1 =
+        -y_b_ / (5 * y_a_) + sqrt((4 * y_b_ * y_b_) / (100 * y_a_ * y_a_) - (y_c_) / (10 * y_a_));
+    if (y_t_max_1 >= 0.0 && y_t_max_1 <= 1.0) {
+      t_max.emplace_back(y_t_max_1);
+    }
+    double y_t_max_2 =
+        -y_b_ / (5 * y_a_) - sqrt((4 * y_b_ * y_b_) / (100 * y_a_ * y_a_) - (y_c_) / (10 * y_a_));
+    if (y_t_max_2 >= 0.0 && y_t_max_2 <= 1.0) {
+      t_max.emplace_back(y_t_max_2);
+    }
+    std::vector<double> y_max_accelerations;
+    for (const auto& t : t_max) {
+      double y_max_acceleration =
+          20 * y_a_ * t * t * t + 12 * y_b_ * t * t + 6 * y_c_ * t + 2 * y_d_;
+      // ROS_WARN_STREAM("y_max_acceleration: " << y_max_acceleration);
+      y_max_accelerations.emplace_back(fabs(y_max_acceleration));
+    }
+    y_max_acceleration = *std::max_element(y_max_accelerations.begin(), y_max_accelerations.end());
+    ROS_WARN_STREAM("y_max_acceleration: " << y_max_acceleration);
+
+    double t_y_max_jerk = -24 * y_b_ / (120 * y_a_);
+    y_max_jerk =
+        60.0 * y_a_ * t_y_max_jerk * t_y_max_jerk + 24.0 * y_b_ * t_y_max_jerk + 6.0 * y_c_;
+    ROS_WARN_STREAM("y max jerk: " << y_max_jerk);
+  } else {
+    y_a_ = 0.0;
+    y_b_ = 0.0;
+    y_c_ = 0.0;
+    y_d_ = 0.0;
+    y_e_ = 0.0;
+    y_f_ = 0.0;
+  }
+
+  // double max_velocity = 2.5 /*rad/s*/;
+  // double max_acceleration = 25.0 /*rad/s*/;
+  // t_end_ = 25.0 /*m/s^2*/ / std::max(x_max_acceleration, y_max_acceleration) * 1e-3;
+  t_end_ = std::max(x_max_acceleration, y_max_acceleration);
   ROS_WARN_STREAM("t_end_: " << t_end_);
-  t_end_ = std::max(t_end_, 0.5);
+  t_end_ = std::min(t_end_, 0.3);
   ROS_WARN_STREAM("t_end_: " << t_end_);
-
-  Eigen::Matrix<double, 6, 6> A;
-  Eigen::Matrix<double, 6, 1> constraints;
-  A << 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 0, 5, 4, 3, 2, 1, 0, 0, 0, 0, 2, 0, 0, 20,
-      12, 6, 2, 0, 0;
-
-  constraints << x_q_0_, x_q_1, x_v_0, x_v_1, x_a_0, x_a_1;
-  Eigen::Matrix<double, 6, 1> x_params = A.colPivHouseholderQr().solve(constraints);
-  x_a_ = x_params(0);
-  x_b_ = x_params(1);
-  x_c_ = x_params(2);
-  x_d_ = x_params(3);
-  x_e_ = x_params(4);
-  x_f_ = x_params(5);
-  ROS_INFO_STREAM("x_params: " << x_params);
-
-  constraints << y_q_0_, y_q_1, y_v_0, y_v_1, y_a_0, y_a_1;
-  Eigen::Matrix<double, 6, 1> y_params = A.colPivHouseholderQr().solve(constraints);
-  y_a_ = y_params(0);
-  y_b_ = y_params(1);
-  y_c_ = y_params(2);
-  y_d_ = y_params(3);
-  y_e_ = y_params(4);
-  y_f_ = y_params(5);
-  ROS_INFO_STREAM("y_params: " << y_params);
 
   elapsed_time_ = ros::Duration(0.0);
 }
@@ -345,14 +558,22 @@ void BalanceControllerCartesian::positionXCallback(const std_msgs::Float32::Cons
     position_x_ = msg->data * M_PI / 180;
     ROS_WARN_STREAM("position_x_: " << msg->data << "deg");
 
-    T_base_end_current_.matrix() << current_pose_[0], current_pose_[4], current_pose_[8], current_pose_[12],
-        current_pose_[1], current_pose_[5], current_pose_[9], current_pose_[13], current_pose_[2],
-        current_pose_[6], current_pose_[10], current_pose_[14], current_pose_[3], current_pose_[7],
-        current_pose_[11], current_pose_[15];
+    T_base_end_current_.matrix() << current_pose_[0], current_pose_[4], current_pose_[8],
+        current_pose_[12], current_pose_[1], current_pose_[5], current_pose_[9], current_pose_[13],
+        current_pose_[2], current_pose_[6], current_pose_[10], current_pose_[14], current_pose_[3],
+        current_pose_[7], current_pose_[11], current_pose_[15];
     Eigen::Vector3d euler_angles = T_base_end_current_.linear().eulerAngles(2, 1, 0);
-    position_y_ = euler_angles(1);
+    position_y_ = constrainAngle(euler_angles(1));
 
-    gotToPosition();
+    x_values_.clear();
+    // x_velocity_.clear();
+    x_acceleration_.clear();
+    x_acceleration_delta_.clear();
+    y_values_.clear();
+    // y_velocity_.clear();
+    y_acceleration_.clear();
+    y_acceleration_delta_.clear();
+    goToPosition();
     position_initialized_ = true;
   }
 }
@@ -362,14 +583,22 @@ void BalanceControllerCartesian::positionYCallback(const std_msgs::Float32::Cons
     position_y_ = msg->data * M_PI / 180;
     ROS_WARN_STREAM("position_y_: " << msg->data << "deg");
 
-    T_base_end_current_.matrix() << current_pose_[0], current_pose_[4], current_pose_[8], current_pose_[12],
-        current_pose_[1], current_pose_[5], current_pose_[9], current_pose_[13], current_pose_[2],
-        current_pose_[6], current_pose_[10], current_pose_[14], current_pose_[3], current_pose_[7],
-        current_pose_[11], current_pose_[15];
+    T_base_end_current_.matrix() << current_pose_[0], current_pose_[4], current_pose_[8],
+        current_pose_[12], current_pose_[1], current_pose_[5], current_pose_[9], current_pose_[13],
+        current_pose_[2], current_pose_[6], current_pose_[10], current_pose_[14], current_pose_[3],
+        current_pose_[7], current_pose_[11], current_pose_[15];
     Eigen::Vector3d euler_angles = T_base_end_current_.linear().eulerAngles(2, 1, 0);
-    position_x_ = euler_angles(2);
+    position_x_ = constrainAngle(euler_angles(2));
 
-    gotToPosition();
+    x_values_.clear();
+    // x_velocity_.clear();
+    x_acceleration_.clear();
+    x_acceleration_delta_.clear();
+    y_values_.clear();
+    // y_velocity_.clear();
+    y_acceleration_.clear();
+    y_acceleration_delta_.clear();
+    goToPosition();
     position_initialized_ = true;
   }
 }

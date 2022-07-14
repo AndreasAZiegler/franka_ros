@@ -29,7 +29,7 @@ class BalanceControllerCartesian
   void update(const ros::Time&, const ros::Duration& period) override;
 
  private:
-  void gotToPosition();
+  void goToPosition();
 
   void publishTargetState(const Eigen::Transform<double, 3, Eigen::Affine>& target_pose);
   void publishCurrentState();
@@ -63,6 +63,29 @@ class BalanceControllerCartesian
   Eigen::Transform<double, 3, Eigen::Affine> T_base_end_ref_;
   Eigen::Transform<double, 3, Eigen::Affine> T_offset_;
   std::vector<Eigen::Matrix4d> waypoints_;
+  std::vector<double> periods_;
+
+  std::vector<double> x_values_;
+  std::vector<double> y_values_;
+  std::vector<double> measured_joint_velocity_;
+  std::vector<double> x_velocity_;
+  std::vector<double> y_velocity_;
+  std::vector<double> x_velocity_deviation_;
+  std::vector<double> y_velocity_deviation_;
+  std::vector<double> x_velocity_delta_;
+  std::vector<double> y_velocity_delta_;
+  std::vector<double> x_acceleration_;
+  std::vector<double> y_acceleration_;
+  std::vector<double> x_acceleration_deviation_;
+  std::vector<double> y_acceleration_deviation_;
+  std::vector<double> x_acceleration_delta_;
+  std::vector<double> y_acceleration_delta_;
+  double previous_x_value_;
+  double previous_y_value_;
+  double previous_x_velocity_;
+  double previous_y_velocity_;
+  double previous_x_acceleration_;
+  double previous_y_acceleration_;
 
   double x_q_0_;
   double y_q_0_;
